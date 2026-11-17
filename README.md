@@ -28,6 +28,10 @@ npm run dev
 
 Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
+## Favoriten und Verlauf
+
+Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzugefügt werden. Die Navigation zeigt Favoriten und die letzten fünf geöffneten Anwendungen. Die Listen werden nur im jeweiligen Browser gespeichert und nicht zwischen Geräten synchronisiert. Eingebettete Apps werden für eine Live-Vorschau geladen und beim Öffnen im selben Frame vergrößert. Sie bleiben beim Wechsel im Browser bestehen, solange DKHub geöffnet bleibt; einzelne Webseiten können sich selbst neu laden. Die Vorschau stellt echte Verbindungen her und kann Ressourcen benötigen; externe Links zeigen zunächst ein Platzhalterbild. Einbettung kann von Webseiten untersagt werden.
+
 ## Webseiten hinzufügen
 
 Damit das Formular speichern kann, vor dem Start ein eigenes Admin-Passwort als Umgebungsvariable setzen. Beispiel für Linux/macOS:
