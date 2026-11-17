@@ -28,3 +28,17 @@ export async function removeApp(id, password) {
   if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
   if (!response.ok) throw new Error('Die Anwendung konnte nicht entfernt werden.');
 }
+
+export async function updateApp(id, app, password) {
+  const response = await fetch(`/api/apps/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-DKHub-Admin': password },
+    body: JSON.stringify(app),
+  });
+  if (response.status === 503) throw new Error('Bitte zuerst das Admin-Passwort auf dem Server einrichten.');
+  if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
+  if (response.status === 409) throw new Error('Dieser DKHub-Pfad wird bereits verwendet.');
+  if (response.status === 422) throw new Error('Bitte prüfe Name, Adresse und DKHub-Pfad.');
+  if (!response.ok) throw new Error('Die Anwendung konnte nicht gespeichert werden.');
+  return response.json();
+}

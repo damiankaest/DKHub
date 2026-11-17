@@ -102,3 +102,27 @@ def test_old_apps_receive_stable_routes_on_write(tmp_path, monkeypatch):
     headers = {'Origin':'http://testserver', 'X-DKHub-Admin':'secret'}
     assert client.delete('/api/apps/' + before[0]['id'], headers=headers).status_code == 204
     assert client.get('/api/apps').json()[0]['route'] == before[1]['route']
+
+
+def test_edit_requires_admin_and_keeps_identity_and_other_apps(tmp_path, monkeypatch):
+    catalog = tmp_path / 'apps.json'
+    monkeypatch.setattr(main, 'CATALOG', catalog)
+    monkeypatch.setenv('DKHUB_ADMIN_PASSWORD', 'secret')
+    headers = {'Origin': 'http://testserver', 'X-DKHub-Admin': 'secret'}
+    before = client.get('/api/apps').json()
+    app_id = before[0]['id']
+    change = {'name': 'Wetter', 'url': 'http://192.168.1.20:31231', 'description': 'Wetter', 'mode': 'embed', 'route': 'weather'}
+    assert client.put('/api/apps/' + app_id, json=change, headers={**headers, 'X-DKHub-Admin':'wrong'}).status_code == 403
+    assert client.put('/api/apps/' + app_id, json=change, headers={**headers, 'Origin':'http://other'}).status_code == 403
+    assert not catalog.exists()
+    duplicate = {**change, 'route': before[1]['route']}
+    assert client.put('/api/apps/' + app_id, json=duplicate, headers=headers).status_code == 409
+    assert client.put('/api/apps/' + app_id, json={**change, 'url':'javascript:alert(1)'}, headers=headers).status_code == 422
+    result = client.put('/api/apps/' + app_id, json=change, headers=headers)
+    assert result.status_code == 200
+    assert result.json()['id'] == app_id
+    assert result.json()['route'] == 'weather'
+    assert result.json()['url'] == change['url']
+    assert client.get('/api/apps').json()[1] == before[1]
+    assert client.put('/api/apps/missing', json=change, headers=headers).status_code == 404
+    assert json.loads(catalog.read_text())[0]['url'] == change['url']

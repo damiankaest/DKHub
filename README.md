@@ -38,7 +38,7 @@ Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzuge
 
 Jede App erhält einen eindeutigen DKHub-Pfad, zum Beispiel `http://SERVER-IP:8000/weather`. Beim Hinzufügen kann `weather` als Pfad eingetragen werden; ohne Eingabe wird er aus dem Namen erzeugt. Vorhandene Einträge erhalten ebenfalls automatisch einen Pfad und werden beim nächsten Speichern in der Katalogdatei festgehalten. Links lassen sich im Heimnetz teilen; `localhost` funktioniert nur auf dem jeweiligen Gerät. Der Link öffnet die einzelne App, nicht die gesamte Fensteranordnung. Für externe Links bietet DKHub die Option „Neuer Tab“.
 
-Eine Kachel kann über „Entfernen“ mit Admin-Passwort gelöscht werden. Die externe Webseite und deren Daten werden dabei nicht verändert.
+Kacheln lassen sich über „Bearbeiten“ mit Admin-Passwort ändern. Im geöffneten Fenster zeigt „Adresse“ die konfigurierte Ziel-URL; dort kann sie kopiert oder bearbeitet werden. Browser-Sicherheitsregeln verhindern bei fremden Seiten das Auslesen ihrer internen Navigation. Eine Kachel kann über „Entfernen“ mit Admin-Passwort gelöscht werden. Die externe Webseite und deren Daten werden dabei nicht verändert.
 
 ## Webseiten hinzufügen
 

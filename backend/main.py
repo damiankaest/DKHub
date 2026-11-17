@@ -152,6 +152,30 @@ def add_app(entry: NewApp, request: Request, admin_password: str = Header(defaul
     return app_entry
 
 
+@app.put("/api/apps/{app_id}", response_model=AppEntry)
+def update_app(app_id: str, entry: NewApp, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")) -> AppEntry:
+    authorize(request, admin_password)
+    name = entry.name.strip()
+    if not name:
+        raise HTTPException(422, "Name is required")
+    with CATALOG_LOCK:
+        entries = list_apps()
+        old = next((item for item in entries if item.id == app_id), None)
+        if old is None:
+            raise HTTPException(404, "App not found")
+        route = entry.route or old.route
+        if route in RESERVED or any(item.id != app_id and item.route == route for item in entries):
+            raise HTTPException(409, "Route already in use")
+        try:
+            updated = AppEntry.model_validate({**old.model_dump(), "name": name,
+                "url": entry.url.strip(), "description": entry.description.strip(),
+                "mode": entry.mode, "route": route})
+        except ValueError as exc:
+            raise HTTPException(422, "Invalid app details") from exc
+        save_catalog([updated if item.id == app_id else item for item in entries])
+    return updated
+
+
 @app.delete("/api/apps/{app_id}", status_code=204)
 def remove_app(app_id: str, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")) -> None:
     authorize(request, admin_password)
