@@ -31,3 +31,29 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt pytest httpx
       - run: python -m pytest -q tests
+  start-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Start DKHub and check frontend and API
+        shell: bash
+        run: |
+          ./start.sh > "$RUNNER_TEMP/dkhub-start.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; cat "$RUNNER_TEMP/dkhub-start.log"' EXIT
+          for attempt in {1..90}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/apps > "$RUNNER_TEMP/apps.json"; then break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then exit 1; fi
+            sleep 2
+          done
+          python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))[0]["id"] == "demo"' "$RUNNER_TEMP/apps.json"
+          curl --fail --silent http://127.0.0.1:8000/ | grep -q 'id="root"'
+          curl --fail --silent http://127.0.0.1:8000/demo.html | grep -q 'Demo-App'
