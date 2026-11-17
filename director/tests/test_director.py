@@ -66,3 +66,52 @@ def test_real_docker_web_service(monkeypatch):
     finally:
         if service_id:
             subprocess.run(['docker', 'rm', '-f', service_id], check=True, capture_output=True)
+
+
+@pytest.mark.skipif(os.environ.get('DKDIRECTOR_DOCKER_TEST') != '1', reason='disposable Docker runner required')
+def test_hub_to_director_real_service(tmp_path, monkeypatch):
+    import importlib.util
+    import socket
+    import sys
+    from pathlib import Path
+
+    monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
+    monkeypatch.setenv('DKDIRECTOR_BIND_IP', '127.0.0.1')
+    monkeypatch.setenv('DKHUB_ADMIN_PASSWORD', 'admin-test')
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+    monkeypatch.setenv('DKDIRECTOR_PORT', str(port))
+    process = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'director.main:app', '--host', '127.0.0.1', '--port', str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    service_id = None
+    try:
+        for _ in range(50):
+            try:
+                with urlopen(f'http://127.0.0.1:{port}/not-found', timeout=1):
+                    pass
+            except Exception as exc:
+                if getattr(exc, 'code', None) == 404:
+                    break
+                time.sleep(0.1)
+        else:
+            pytest.fail('Director did not start')
+        backend_path = Path(__file__).resolve().parents[2] / 'backend' / 'main.py'
+        spec = importlib.util.spec_from_file_location('director_test_hub', backend_path)
+        hub_module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = hub_module
+        spec.loader.exec_module(hub_module)
+        monkeypatch.setattr(hub_module, 'CATALOG', tmp_path / 'apps.json')
+        hub = TestClient(hub_module.app)
+        headers = {'Origin':'http://testserver', 'X-DKHub-Admin':'admin-test'}
+        response = hub.post('/api/director/install', headers=headers, json={'name':'Whoami', 'image':'traefik/whoami:v1.10.4', 'port':80})
+        assert response.status_code == 201, response.text
+        service = response.json()
+        service_id = service['id']
+        assert hub.get('/api/apps').json()[-1]['url'] == f"http://127.0.0.1:{service['host_port']}"
+        assert hub.post(f'/api/director/services/{service_id}/stop', headers=headers).json()['state'] == 'exited'
+        assert hub.post(f'/api/director/services/{service_id}/start', headers=headers).json()['state'] == 'running'
+    finally:
+        if service_id:
+            subprocess.run(['docker', 'rm', '-f', service_id], check=True, capture_output=True)
+        process.terminate()
+        process.wait(timeout=10)
