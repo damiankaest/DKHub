@@ -1,0 +1,25 @@
+// Vorläufige Beispieldaten. In einem späteren Schritt liefert sie das Backend.
+export const apps = [
+  {
+    id: 'demo',
+    name: 'DKHub Demo',
+    description: 'Eine kleine Beispielseite zum Ausprobieren der eingebetteten Ansicht.',
+    category: 'Zuhause',
+    icon: 'spark',
+    color: 'sage',
+    url: '/demo.html',
+    mode: 'embed',
+    label: 'Beispiel-App',
+  },
+  {
+    id: 'example',
+    name: 'Example.com',
+    description: 'Ein Beispiel für eine externe Webseite, die in einem neuen Tab öffnet.',
+    category: 'Links',
+    icon: 'globe',
+    color: 'sand',
+    url: 'https://example.com',
+    mode: 'external',
+    label: 'Externer Link',
+  },
+];
