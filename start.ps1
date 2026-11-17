@@ -1,5 +1,9 @@
 # Startet DKHub unter Windows. Beenden mit Strg+C.
 # Optional: $env:DKHUB_PORT = 8080; $env:DKHUB_PYTHON = "3.12"
+# Mit DKDirector (Docker-Dienste), vorher in derselben Sitzung setzen:
+#   $env:DKHUB_ADMIN_PASSWORD = 'DEIN-PASSWORT'
+#   $env:DKDIRECTOR_BIND_IP   = '192.168.1.50'   # eigene IPv4 des Rechners
+#   $env:DKHUB_ENABLE_DIRECTOR = '1'
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
@@ -35,15 +39,55 @@ try {
 }
 finally { Pop-Location }
 
-$listeners = Get-NetTCPConnection -LocalPort ([int]$port) -State Listen -ErrorAction SilentlyContinue
-foreach ($procId in ($listeners | Select-Object -ExpandProperty OwningProcess -Unique)) {
-    $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
-    if ($proc) {
-        Write-Host "Beende Prozess auf Port ${port}: $($proc.ProcessName) (PID $procId)"
-        Stop-Process -Id $procId -Force
+function Stop-PortListeners {
+    param([int]$LocalPort)
+    $listeners = Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue
+    foreach ($procId in ($listeners | Select-Object -ExpandProperty OwningProcess -Unique)) {
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+        if ($proc) {
+            Write-Host "Beende Prozess auf Port ${LocalPort}: $($proc.ProcessName) (PID $procId)"
+            Stop-Process -Id $procId -Force
+        }
     }
 }
 
-Write-Host "`nDKHub startet auf http://localhost:$port - Beenden mit Strg+C.`n"
-Set-Location (Join-Path $root 'backend')
-& $venvPython -m uvicorn main:app --host 127.0.0.1 --port $port
+$enableDirector = $env:DKHUB_ENABLE_DIRECTOR -eq '1'
+$directorProc = $null
+
+try {
+    Stop-PortListeners -LocalPort ([int]$port)
+
+    if ($enableDirector) {
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker fehlt (Docker Desktop starten/installieren).' }
+        if (-not $env:DKHUB_ADMIN_PASSWORD -or -not $env:DKDIRECTOR_BIND_IP) {
+            throw 'Fuer DKDirector bitte $env:DKHUB_ADMIN_PASSWORD und $env:DKDIRECTOR_BIND_IP setzen.'
+        }
+        $env:DKDIRECTOR_TOKEN = (& $venvPython -c 'import secrets; print(secrets.token_urlsafe(32))').Trim()
+        $env:DKDIRECTOR_PORT = if ($env:DKDIRECTOR_PORT) { $env:DKDIRECTOR_PORT } else { '8765' }
+        Stop-PortListeners -LocalPort ([int]$env:DKDIRECTOR_PORT)
+
+        Write-Host "`nStarte DKDirector auf 127.0.0.1:$($env:DKDIRECTOR_PORT) ..."
+        $directorProc = Start-Process -FilePath $venvPython -PassThru -NoNewWindow `
+            -WorkingDirectory $root `
+            -ArgumentList '-m', 'uvicorn', 'director.main:app', '--app-dir', $root, '--host', '127.0.0.1', '--port', $env:DKDIRECTOR_PORT
+
+        $ready = $false
+        for ($i = 0; $i -lt 30 -and -not $directorProc.HasExited; $i++) {
+            try {
+                Invoke-WebRequest "http://127.0.0.1:$($env:DKDIRECTOR_PORT)/health" -UseBasicParsing -TimeoutSec 1 `
+                    -Headers @{ 'X-Director-Token' = $env:DKDIRECTOR_TOKEN } | Out-Null
+                $ready = $true; break
+            } catch { Start-Sleep -Seconds 1 }
+        }
+        if (-not $ready) { throw 'DKDirector konnte nicht gestartet werden.' }
+    }
+
+    Write-Host "`nDKHub startet auf http://localhost:$port - Beenden mit Strg+C.`n"
+    Set-Location (Join-Path $root 'backend')
+    & $venvPython -m uvicorn main:app --host 127.0.0.1 --port $port
+}
+finally {
+    if ($directorProc -and -not $directorProc.HasExited) {
+        Stop-Process -Id $directorProc.Id -Force -ErrorAction SilentlyContinue
+    }
+}
