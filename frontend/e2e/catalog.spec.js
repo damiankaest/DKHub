@@ -41,3 +41,22 @@ test('four app windows and shareable routes', async ({ page }) => {
   await page.reload();
   await expect(page.getByRole('button', { name:'App 1 schließen' })).toBeVisible();
 });
+
+test('show configured address and edit an app', async ({ page }) => {
+  let app = { id:'demo', route:'demo-app', name:'Demo', description:'Test', category:'Test', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel' };
+  await page.route('**/api/apps', route => route.fulfill({ json: [app] }));
+  await page.route('**/api/apps/demo', async route => {
+    const details = route.request().postDataJSON();
+    app = { ...app, ...details };
+    await route.fulfill({ json: app });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name:'Demo öffnen' }).click();
+  await page.getByRole('button', { name:'Adresse', exact:true }).click();
+  await expect(page.getByRole('textbox', { name:'Demo Adresse' })).toHaveValue('/demo.html');
+  await page.getByRole('button', { name:'Bearbeiten', exact:true }).click();
+  await page.getByLabel('Webadresse').fill('https://example.com/updated');
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button', { name:'Anwendung speichern' }).click();
+  await expect(page.getByRole('textbox', { name:'Demo Adresse' })).toHaveValue('https://example.com/updated');
+});
