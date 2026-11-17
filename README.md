@@ -28,6 +28,10 @@ npm run dev
 
 Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
+## Favoriten und Verlauf
+
+Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzugefügt werden. Die Navigation zeigt Favoriten und die letzten fünf geöffneten Anwendungen. Die Listen werden nur im jeweiligen Browser gespeichert und nicht zwischen Geräten synchronisiert. Beim Wechsel wird eine eingebettete Seite neu geladen; ihre eigenen Daten verwaltet die jeweilige App.
+
 ## Webseiten hinzufügen
 
 Damit das Formular speichern kann, vor dem Start ein eigenes Admin-Passwort als Umgebungsvariable setzen. Beispiel für Linux/macOS:
