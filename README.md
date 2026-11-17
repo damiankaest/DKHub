@@ -63,3 +63,39 @@ Der Zugriff ist für ein vertrauenswürdiges Heimnetz gedacht: Über HTTP wird d
 cd frontend && npm ci && npm run build
 cd ../backend && pip install -r requirements.txt pytest httpx && python -m pytest -q tests
 ```
+
+## DKDirector: einfache Docker-Dienste
+
+DKDirector ist ein eigener Prozess im Verzeichnis `director/`. Er steuert nur Container, die er selbst angelegt und markiert hat. Die Admin-Oberfläche **Dienste** sucht öffentliche Images über Docker Hub, fragt Image-Tag und internen TCP-Port ab und installiert nach deinem Klick einen Container. DKHub erhält danach eine Kachel mit der vom Docker-Host aus erreichbaren Adresse. Start und Stopp sind über die Dienstliste möglich.
+
+Für die erste Version sind nur einfache einzelne Web-Container vorgesehen. Volumes, Datenbanken, Konfigurationsvariablen, automatische Updates und der Upload eigener Image-Dateien sind noch nicht enthalten. Ohne Volume können Daten beim Entfernen des Containers verloren gehen. Nur Images installieren, denen du vertraust: Container können Netzwerkzugriff und weitreichende Auswirkungen haben.
+
+### Linux: optional aktivieren
+
+Docker Engine und Zugriff auf Docker für den ausführenden Benutzer sind erforderlich. Die **explizite IPv4-Adresse des Servers im Heimnetz** eintragen (kein `0.0.0.0`); darauf werden neue Dienste mit einem automatisch gewählten freien Port erreichbar. Der DKDirector selbst lauscht ausschließlich auf `127.0.0.1:8765`. DKHub und Director laufen hier auf demselben Host.
+
+```bash
+export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
+export DKDIRECTOR_BIND_IP='192.168.1.50'  # durch die eigene Server-IP ersetzen
+export DKHUB_ENABLE_DIRECTOR=1
+./start.sh
+```
+
+Das Startskript erzeugt ein kurzlebiges gemeinsames Token und beendet seinen eigenen Director-Prozess beim Beenden. Ohne die Option bleibt der bisherige Start unverändert. Beispieltest: In **Dienste** nach `traefik/whoami` suchen, Version `v1.10.4`, internen Port `80` angeben und installieren. Docker Hub und der Image-Download benötigen Internet. Falls eine Aktion ausfällt oder ein Timeout auftritt: erst die Dienstliste aktualisieren und Docker auf dem Server prüfen, bevor sie wiederholt wird.
+
+Die gestarteten App-Ports sind auf der gewählten Netzwerkadresse erreichbar. Die App selbst ist für ihre Anmeldung und den Schutz ihrer Daten verantwortlich. Das Admin-Passwort wird bei HTTP unverschlüsselt übertragen; ausschließlich im vertrauenswürdigen Heimnetz testen. Keine Portweiterleitung ins Internet einrichten.
+
+### Windows mit vorhandenem `start.ps1`
+
+Das eigene PowerShell-Startskript wird nicht verändert. Falls es bereits `backend/.venv` angelegt hat und Docker Desktop läuft, kann DKDirector zunächst separat gestartet werden. In **derselben PowerShell-Sitzung** die Variablen für beide Prozesse setzen und dann den Backendstart im eigenen Skript ausführen:
+
+```powershell
+$env:DKHUB_ADMIN_PASSWORD = 'DEIN-EIGENES-LANGES-PASSWORT'
+$env:DKDIRECTOR_BIND_IP = '192.168.1.50' # eigene, für andere Geräte erreichbare IPv4-Adresse
+$env:DKDIRECTOR_PORT = '8765'
+$env:DKDIRECTOR_TOKEN = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+Start-Process -FilePath '.\backend\.venv\Scripts\python.exe' -ArgumentList '-m','uvicorn','director.main:app','--host','127.0.0.1','--port','8765'
+.\start.ps1
+```
+
+Bei Windows PowerShell 5.1 kann die Token-Erzeugung abweichen; dann ein sicher zufälliges Token verwenden. Der Director-Prozess muss bei dieser manuellen Variante anschließend selbst beendet werden. Docker Desktop kann je nach Netzwerk-Konfiguration andere Bind-Adressen erfordern; die Erreichbarkeit vom zweiten Gerät ist separat zu testen.
