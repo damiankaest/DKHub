@@ -78,8 +78,8 @@ function App() {
       <div hidden={collapsed} className="sidebar-note"><span className="note-dot"/> Für dein Zuhause <small>Deine Apps an einem Ort.</small></div>
     </aside>
     <div className="main-wrap">
-      {!selected && <header className="topbar"><button className="mobile-brand" onClick={home}>DK<span>Hub</span></button><span className="top-caption">{selected ? selected.name : "DEIN PERSÖNLICHER HUB"}</span><span className="top-tag"><span className="note-dot"/> Dein Zuhause</span></header>}
-      <nav className="mobile-quick" aria-label="Schnellzugriff"><QuickLinks title="Favoriten" ids={favorites} apps={apps} selectedId={selected?.id} onOpen={openApp}/><QuickLinks title="Zuletzt" ids={recent} apps={apps} selectedId={selected?.id} onOpen={openApp}/></nav>
+
+      <nav className="mobile-quick" aria-label="Schnellzugriff"><button className="mobile-home" onClick={home} aria-label="DKHub Startseite">DK<span>Hub</span></button><QuickLinks title="Favoriten" ids={favorites} apps={apps} selectedId={selected?.id} onOpen={openApp}/><QuickLinks title="Zuletzt" ids={recent} apps={apps} selectedId={selected?.id} onOpen={openApp}/></nav>
       <main className={selected ? 'main viewer-main' : 'main'}>
         {editing && <AddApp key={editing.id} app={editing} onCancel={() => setEditing(null)} onAdded={app => { setApps(current => current.map(item => item.id === app.id ? app : item)); if (focusId === app.id && app.route) window.history.replaceState({}, '', `/${app.route}`); setEditing(null); }} />}
         {removing && !editing && <RemoveApp app={removing} onCancel={() => setRemoving(null)} onRemoved={id => { setApps(current => current.filter(app => app.id !== id)); setOpenIds(current => current.filter(item => item !== id)); setFavorites(current => current.filter(item => item !== id)); setRecent(current => current.filter(item => item !== id)); if (focusId === id) { const next = openIds.filter(item => item !== id); const nextApp = apps.find(item => item.id === next[next.length - 1]); setFocusId(nextApp?.id || null); window.history.replaceState({}, '', nextApp?.route ? `/${nextApp.route}` : '/'); } setRemoving(null); }} />}
