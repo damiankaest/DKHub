@@ -60,3 +60,16 @@ test('show configured address and edit an app', async ({ page }) => {
   await page.getByRole('button', { name:'Anwendung speichern' }).click();
   await expect(page.getByRole('textbox', { name:'Demo Adresse' })).toHaveValue('https://example.com/updated');
 });
+
+test('try an embedded page before saving', async ({ page }) => {
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.goto('/');
+  await expect(page.getByText('DEIN PERSÖNLICHER HUB')).toHaveCount(0);
+  await page.getByRole('button', { name:'+ Hinzufügen' }).click();
+  await page.getByLabel('Webadresse').fill('/demo.html');
+  await page.getByRole('button', { name:'Einbettung testen' }).click();
+  const preview = page.frameLocator('iframe[title="Einbettungsvorschau"]');
+  await expect(preview.getByRole('heading', { name:'Hallo aus deiner Demo-App!' })).toBeVisible();
+  await page.getByLabel('Webadresse').fill('https://example.com');
+  await expect(page.locator('iframe[title="Einbettungsvorschau"]')).toHaveCount(0);
+});
