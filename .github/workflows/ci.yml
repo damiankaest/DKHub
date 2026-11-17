@@ -74,3 +74,15 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+  director:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r backend/requirements.txt pytest httpx
+      - name: Test DKDirector with disposable Docker container
+        env:
+          DKDIRECTOR_DOCKER_TEST: '1'
+        run: python -m pytest -q director/tests

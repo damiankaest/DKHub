@@ -60,3 +60,38 @@ test('show configured address and edit an app', async ({ page }) => {
   await page.getByRole('button', { name:'Anwendung speichern' }).click();
   await expect(page.getByRole('textbox', { name:'Demo Adresse' })).toHaveValue('https://example.com/updated');
 });
+
+test('try an embedded page before saving', async ({ page }) => {
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.goto('/');
+  await expect(page.getByText('DEIN PERSÖNLICHER HUB')).toHaveCount(0);
+  await page.getByRole('button', { name:'+ Hinzufügen' }).click();
+  await page.getByLabel('Webadresse').fill('/demo.html');
+  await page.getByRole('button', { name:'Einbettung testen' }).click();
+  const preview = page.frameLocator('iframe[title="Einbettungsvorschau"]');
+  await expect(preview.getByRole('heading', { name:'Hallo aus deiner Demo-App!' })).toBeVisible();
+  await page.getByLabel('Webadresse').fill('https://example.com');
+  await expect(page.locator('iframe[title="Einbettungsvorschau"]')).toHaveCount(0);
+});
+
+test('search and install a service through DKDirector', async ({ page }) => {
+  let apps = [];
+  await page.route('**/api/apps', route => route.fulfill({ json: apps }));
+  await page.route('**/api/director/search?*', route => route.fulfill({ json: [{name:'nginx', description:'Web server', stars:'10', official:true}] }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [{id:'dkhub-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', name:'nginx', image:'nginx:latest', state:'running', host_port:31231}] }));
+  await page.route('**/api/director/install', route => {
+    expect(route.request().postDataJSON()).toEqual({ name:'nginx', image:'nginx:latest', port:80 });
+    apps = [{id:'director-aaaa', route:'nginx', name:'nginx', description:'Docker', category:'Dienste', icon:'globe', color:'sage', url:'http://192.168.1.5:31231', mode:'embed', label:'Docker'}];
+    return route.fulfill({ status:201, json: {name:'nginx', state:'running'} });
+  });
+  await page.goto('/');
+  await page.getByRole('button', {name:'Dienste', exact:true}).click();
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByLabel('Docker Hub durchsuchen').fill('nginx');
+  await page.getByRole('button', {name:'Suchen', exact:true}).click();
+  await page.getByRole('button', {name:'Auswählen'}).click();
+  await page.getByRole('button', {name:'Image installieren und starten'}).click();
+  await expect(page.getByText('nginx wurde gestartet und als Kachel hinzugefügt.')).toBeVisible();
+  await page.getByRole('button', {name:'Zurück', exact:true}).click();
+  await expect(page.getByRole('heading', {name:'nginx'})).toBeVisible();
+});
