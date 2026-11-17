@@ -58,6 +58,7 @@ jobs:
           python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))[0]["id"] == "demo"' "$RUNNER_TEMP/apps.json"
           curl --fail --silent http://127.0.0.1:8000/ | grep -q 'id="root"'
           curl --fail --silent http://127.0.0.1:8000/demo.html | grep -q 'Demo-App'
+          curl --fail --silent http://127.0.0.1:8000/dkhub-demo | grep -q 'id="root"'
   browser:
     runs-on: ubuntu-24.04
     defaults:

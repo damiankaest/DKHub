@@ -10,7 +10,7 @@ export function AddApp({ onAdded, onCancel }) {
     setBusy(true);
     setError('');
     try {
-      const app = await addApp({ name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), mode: fields.get('mode') }, fields.get('password'));
+      const app = await addApp({ name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), mode: fields.get('mode'), route: fields.get('route') || null }, fields.get('password'));
       onAdded(app);
     } catch (err) {
       setError(err.message || 'Verbindung zum Backend fehlgeschlagen.');
@@ -23,6 +23,7 @@ export function AddApp({ onAdded, onCancel }) {
       <label>Name<input name="name" required maxLength="100" placeholder="z. B. Teamgeist" /></label>
       <label>Webadresse<input name="url" type="url" required maxLength="2048" placeholder="http://192.168.1.10:3000" /></label>
       <label>Beschreibung <span>(optional)</span><input name="description" maxLength="300" placeholder="Worum geht es?" /></label>
+      <label>DKHub-Pfad <span>(optional, z. B. weather)</span><input name="route" pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength="80" placeholder="Automatisch aus dem Namen" /></label>
       <label>Öffnen<select name="mode" defaultValue="external"><option value="external">In einem neuen Tab</option><option value="embed">Im DKHub einbetten</option></select></label>
       <label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>
       {error && <p className="form-error" role="alert">{error}</p>}
