@@ -5,3 +5,16 @@ export async function getApps(signal) {
   if (!Array.isArray(apps)) throw new Error('Invalid app list');
   return apps;
 }
+
+export async function addApp(app, password) {
+  const response = await fetch('/api/apps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-DKHub-Admin': password },
+    body: JSON.stringify(app),
+  });
+  if (response.status === 503) throw new Error('Bitte zuerst das Admin-Passwort auf dem Server einrichten.');
+  if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
+  if (response.status === 422) throw new Error('Bitte Name und eine gültige HTTP- oder HTTPS-Adresse eingeben.');
+  if (!response.ok) throw new Error('Die Anwendung konnte nicht gespeichert werden.');
+  return response.json();
+}

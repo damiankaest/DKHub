@@ -1,6 +1,6 @@
 # DKHub
 
-Ein leichter Hub für Web-Apps und Links im Heimnetz. React-Frontend und FastAPI-Backend liegen gemeinsam in diesem Repository. Das Backend liest die Kacheln aus `backend/apps.json` und stellt sie über `GET /api/apps` bereit. Der Katalog ist zunächst bewusst nur über die Datei änderbar; es gibt noch keinen Adminbereich, keine Nutzeranmeldung und keine Containersteuerung.
+Ein leichter Hub für Web-Apps und Links im Heimnetz. React-Frontend und FastAPI-Backend liegen gemeinsam in diesem Repository. Das Backend stellt Kacheln über `GET /api/apps` bereit. Neue Webseiten lassen sich über ein Formular mit Admin-Passwort hinzufügen. Es gibt noch keine Nutzerverwaltung und keine Containersteuerung.
 
 ## Start für den Heimnetztest
 
@@ -28,11 +28,22 @@ npm run dev
 
 Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
-## Apps eintragen
+## Webseiten hinzufügen
 
-`backend/apps.json` enthält die Kacheln. Änderungen werden beim nächsten Abruf gelesen. Für einen Eintrag eine eindeutige `id`, Namen, Beschreibung, Kategorie, Icon (`spark` oder `globe`), Farbe (`sage` oder `sand`), URL, Modus (`embed` oder `external`) und eine kurze Beschriftung angeben. `embed` zeigt eine Seite im Hub; `external` öffnet einen neuen Tab. Nur vertrauenswürdige URLs verwenden. Bei ungültigen Daten meldet das Frontend einen Fehler.
+Damit das Formular speichern kann, vor dem Start ein eigenes Admin-Passwort als Umgebungsvariable setzen. Beispiel für Linux/macOS:
 
-Einige Webseiten verbieten Einbettung; dafür bietet die Detailseite einen Link zum Öffnen in einem neuen Tab. HTTPS-Seiten können HTTP-Inhalte nicht einbetten. `localhost` bezeichnet auf jedem Gerät dieses Gerät selbst: Für andere Clients eine erreichbare Serveradresse verwenden. Die Demo `/demo.html` wird mit dem Frontend ausgeliefert.
+```bash
+export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
+./start.sh
+```
+
+In PowerShell: `$env:DKHUB_ADMIN_PASSWORD = 'DEIN-EIGENES-LANGES-PASSWORT'` und anschließend das eigene Startskript ausführen. Das Passwort nicht im Repository speichern. Es gilt für den laufenden Prozess und muss beim späteren Start wieder gesetzt werden. Ohne Passwort bleibt die Startseite lesbar, das Hinzufügen ist deaktiviert.
+
+Auf der Startseite **Anwendung hinzufügen** wählen, Name und erreichbare HTTP(S)-Adresse angeben und auswählen, ob die Webseite im Hub oder in einem neuen Tab geöffnet werden soll. Manche Webseiten erlauben keine Einbettung. `localhost` bezeichnet auf jedem Gerät dieses Gerät selbst; für andere Clients eine erreichbare Serveradresse angeben. HTTPS-Seiten können HTTP-Inhalte nicht einbetten.
+
+Die mitgelieferten Beispiele stehen in `backend/apps.json`. Beim ersten Speichern wird daraus zusammen mit dem neuen Eintrag `backend/.local/apps.json`; diese Datei enthält danach den aktuellen Katalog und bleibt bei Git-Updates erhalten. Bestehende Einträge in `backend/apps.json` werden beim ersten Speichern übernommen. Danach die aktive Datei `backend/.local/apps.json` sichern. Mit `DKHUB_APPS_FILE` kann ein anderer Speicherort angegeben werden.
+
+Der Zugriff ist für ein vertrauenswürdiges Heimnetz gedacht: Über HTTP wird das Admin-Passwort im Netzwerk unverschlüsselt übertragen. Für unzuverlässige Netze oder Internetzugriff sind HTTPS und ein geeignetes Sicherheitskonzept nötig. Keine Internet-Portfreigabe einrichten.
 
 ## Prüfungen
 

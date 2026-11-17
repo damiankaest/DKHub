@@ -5,11 +5,13 @@ import './styles.css';
 
 import { Icon } from './Icon';
 import { AppCard } from './AppCard';
+import { AddApp } from './AddApp';
 
 function App() {
   const [apps, setApps] = useState([]);
   const [status, setStatus] = useState('loading');
   const [selected, setSelected] = useState(null);
+  const [adding, setAdding] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     getApps(controller.signal).then(data => { setApps(data); setStatus('ready'); }).catch(error => {
@@ -19,7 +21,7 @@ function App() {
   }, []);
   const [query, setQuery] = useState('');
   const visible = apps.filter(app => `${app.name} ${app.description} ${app.category}`.toLocaleLowerCase('de').includes(query.trim().toLocaleLowerCase('de')));
-  const home = () => setSelected(null);
+  const home = () => { setSelected(null); setAdding(false); };
   return <div className="shell">
     <aside className="sidebar">
       <button className="brand" onClick={home} aria-label="DKHub Startseite"><span className="brand-icon"><Icon name="grid" size={19}/></span><span>DK<span className="brand-accent">Hub</span><small>DEIN DIGITALER ORT</small></span></button>
@@ -30,7 +32,7 @@ function App() {
     <div className="main-wrap">
       <header className="topbar"><button className="mobile-brand" onClick={home}>DK<span>Hub</span></button><span className="top-caption">DEIN PERSÖNLICHER HUB</span><span className="top-tag"><span className="note-dot"/> Dein Zuhause</span></header>
       <main className={selected ? 'main viewer-main' : 'main'}>
-        {selected ? <>
+        {adding ? <AddApp onCancel={home} onAdded={app => { setApps(current => [...current, app]); setStatus('ready'); setAdding(false); setQuery(''); }} /> : selected ? <>
           <button className="back-link" onClick={home}><Icon name="back" size={18}/> Zurück zur Übersicht</button>
           <div className="viewer-heading"><div><div className="eyebrow">DEINE ANWENDUNG</div><h1>{selected.name}</h1><p>{selected.description}</p></div><a className="button secondary" href={selected.url} target="_blank" rel="noopener noreferrer">In neuem Tab öffnen <Icon name="arrow" size={17}/></a></div>
           <div className="frame-wrap"><div className="frame-bar"><span/><span/><span/><div>{selected.name}</div></div><iframe title={selected.name} src={selected.url} referrerPolicy="no-referrer"/></div>
@@ -38,6 +40,7 @@ function App() {
         </> : <>
           <div className="welcome"><div className="eyebrow"><span className="eyebrow-line"/> DEIN DIGITALER ORT</div><h1>Alles, was du brauchst.<br/><em>An einem Ort.</em></h1><p>Deine Anwendungen, Dienste und liebsten Links –<br className="desktop-break"/> ganz einfach von deinem Zuhause aus erreichbar.</p><div className="hero-stamp"><Icon name="spark" size={36}/></div></div>
           <div className="section-heading"><div><div className="eyebrow muted">DEIN BEREICH</div><h2>Deine Anwendungen <span>{apps.length}</span></h2><p>Alles Wichtige, nur einen Klick entfernt.</p></div><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Anwendungen suchen" aria-label="Anwendungen suchen"/></label></div>
+          <div className="add-toolbar"><button className="button primary" onClick={() => setAdding(true)}>+ Anwendung hinzufügen</button></div>
           <div className="cards">{visible.map(app => <AppCard key={app.id} app={app} onOpen={() => setSelected(app)} />)}</div>
           {status === 'loading' && <p className="empty" role="status">Anwendungen werden geladen …</p>}
           {status === 'error' && <p className="empty" role="alert">Anwendungen konnten nicht geladen werden. Bitte prüfe, ob das Backend läuft, und lade die Seite neu.</p>}
