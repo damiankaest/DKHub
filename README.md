@@ -1,27 +1,45 @@
 # DKHub
 
-Eine schlanke Startseite für eigene Web-Apps und Links im Heimnetz. Die erste Version enthält zwei fest konfigurierte Beispiele: eine lokale Demo zum Einbetten und einen externen Link. Sie verfügt noch über kein Backend, keine Anmeldung und keine Docker-Verwaltung.
+Ein leichter Hub für Web-Apps und Links im Heimnetz. React-Frontend und FastAPI-Backend liegen gemeinsam in diesem Repository. Das Backend liest die Kacheln aus `backend/apps.json` und stellt sie über `GET /api/apps` bereit. Der Katalog ist zunächst bewusst nur über die Datei änderbar; es gibt noch keinen Adminbereich, keine Nutzeranmeldung und keine Containersteuerung.
 
-## Lokal starten
+## Start für den Heimnetztest
 
-Voraussetzung: Node.js 24 und npm.
+Voraussetzungen: Python 3.12, Node.js 24 und npm.
 
 ```bash
+cd frontend
+npm ci
+npm run build
+cd ../backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Auf Windows die virtuelle Umgebung mit `.venv\Scripts\activate` aktivieren. Auf dem Server `http://localhost:8000` öffnen; auf anderen Geräten im Heimnetz `http://SERVER-IP:8000` verwenden. Der Server muss erreichbar und der Port entsprechend freigegeben sein. Keine Internet-Portfreigabe einrichten. Bei Änderungen am Frontend erneut `npm run build` ausführen und den Backendprozess neu starten.
+
+## Entwicklung
+
+Backend wie oben starten (ohne `--host 0.0.0.0` genügt lokal), dann in einem zweiten Terminal:
+
+```bash
+cd frontend
 npm ci
 npm run dev
 ```
 
-Die von Vite angezeigte lokale Adresse im Browser öffnen. Für Tests von einem anderen Gerät im selben Netz die angezeigte Netzwerkadresse und den Port verwenden; Erreichbarkeit hängt von Netzwerk und Firewall des Servers ab. Dieser Entwicklungsserver ist für lokale Tests gedacht, nicht für die Freigabe ins Internet.
+Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
-Produktionsbuild testen:
+## Apps eintragen
+
+`backend/apps.json` enthält die Kacheln. Änderungen werden beim nächsten Abruf gelesen. Für einen Eintrag eine eindeutige `id`, Namen, Beschreibung, Kategorie, Icon (`spark` oder `globe`), Farbe (`sage` oder `sand`), URL, Modus (`embed` oder `external`) und eine kurze Beschriftung angeben. `embed` zeigt eine Seite im Hub; `external` öffnet einen neuen Tab. Nur vertrauenswürdige URLs verwenden. Bei ungültigen Daten meldet das Frontend einen Fehler.
+
+Einige Webseiten verbieten Einbettung; dafür bietet die Detailseite einen Link zum Öffnen in einem neuen Tab. HTTPS-Seiten können HTTP-Inhalte nicht einbetten. `localhost` bezeichnet auf jedem Gerät dieses Gerät selbst: Für andere Clients eine erreichbare Serveradresse verwenden. Die Demo `/demo.html` wird mit dem Frontend ausgeliefert.
+
+## Prüfungen
 
 ```bash
-npm run build
-npm run preview
+cd frontend && npm ci && npm run build
+cd ../backend && pip install -r requirements.txt pytest httpx && python -m pytest -q tests
 ```
-
-## Kacheln anpassen
-
-Die vorläufigen Einträge stehen in `src/apps.js`. Eine Kachel mit `mode: 'embed'` öffnet die URL innerhalb des Hubs; `mode: 'external'` öffnet sie in einem neuen Tab. Nur vertrauenswürdige URLs eintragen. HTTPS-Seiten können keine unsicheren HTTP-Inhalte einbetten. Manche Apps blockieren die Einbettung; dann den Link im neuen Tab öffnen. Eine vom eigenen Computer aus erreichbare `localhost`-Adresse bezeichnet auf jedem anderen Gerät dessen eigenen Computer; für das Heimnetz die vom Client erreichbare Serveradresse verwenden.
-
-Nächste Schritte: Backend für die Registry, eigene Web-Apps anbinden, danach Docker-Apps testen und erst später deren Verwaltung und Projektvorlagen ergänzen.
