@@ -120,6 +120,23 @@ def list_apps() -> list[AppEntry]:
         raise HTTPException(status_code=500, detail="Unable to read app catalog") from exc
 
 
+class ReorderApps(BaseModel):
+    ids: list[str] = Field(max_length=1000)
+
+
+@app.post("/api/apps/reorder", response_model=list[AppEntry])
+def reorder_apps(payload: ReorderApps, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")) -> list[AppEntry]:
+    authorize(request, admin_password)
+    with CATALOG_LOCK:
+        entries = list_apps()
+        by_id = {entry.id: entry for entry in entries}
+        if len(payload.ids) != len(entries) or len(set(payload.ids)) != len(entries) or set(payload.ids) != set(by_id):
+            raise HTTPException(409, "Catalog changed; reload and try again")
+        ordered = [by_id[app_id] for app_id in payload.ids]
+        save_catalog(ordered)
+        return ordered
+
+
 class NewApp(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     url: str = Field(min_length=1, max_length=2048)
