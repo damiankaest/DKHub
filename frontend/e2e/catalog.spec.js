@@ -108,6 +108,8 @@ test('chat searches the catalog and opens an embedded app', async ({ page }) => 
   await page.getByRole('button', {name:'Nachricht senden'}).click();
   await expect(page.getByRole('button', {name:'Wetter schließen'})).toBeVisible();
   await expect(page.getByText('Ich öffne Wetter.')).toBeVisible();
+});
+
 test('sort apps with buttons, save and reload the shared order', async ({ page }) => {
   let apps = ['a', 'b', 'c'].map(id => ({ id, route:id, name:`App ${id}`, description:'Test', category:'Test', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel' }));
   await page.route('**/api/apps', route => route.fulfill({ json: apps }));
