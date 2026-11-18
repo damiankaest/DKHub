@@ -126,3 +126,22 @@ def test_edit_requires_admin_and_keeps_identity_and_other_apps(tmp_path, monkeyp
     assert client.get('/api/apps').json()[1] == before[1]
     assert client.put('/api/apps/missing', json=change, headers=headers).status_code == 404
     assert json.loads(catalog.read_text())[0]['url'] == change['url']
+
+
+def test_reorder_persists_without_losing_data_and_rejects_stale_catalog(tmp_path, monkeypatch):
+    catalog = tmp_path / 'apps.json'
+    monkeypatch.setattr(main, 'CATALOG', catalog)
+    monkeypatch.setenv('DKHUB_ADMIN_PASSWORD', 'secret')
+    headers = {'Origin': 'http://testserver', 'X-DKHub-Admin': 'secret'}
+    original = client.get('/api/apps').json()
+    ids = [entry['id'] for entry in original]
+    endpoint = '/api/apps/reorder'
+    assert client.post(endpoint, json={'ids': ids[::-1]}).status_code == 403
+    assert client.post(endpoint, json={'ids': [ids[0], ids[0]]}, headers=headers).status_code == 409
+    assert client.post(endpoint, json={'ids': ids[:-1]}, headers=headers).status_code == 409
+    assert not catalog.exists()
+    response = client.post(endpoint, json={'ids': ids[::-1]}, headers=headers)
+    assert response.status_code == 200
+    assert response.json() == original[::-1]
+    assert client.get('/api/apps').json() == original[::-1]
+    assert json.loads(catalog.read_text(encoding='utf-8')) == original[::-1]

@@ -95,3 +95,32 @@ test('search and install a service through DKDirector', async ({ page }) => {
   await page.getByRole('button', {name:'Zurück', exact:true}).click();
   await expect(page.getByRole('heading', {name:'nginx'})).toBeVisible();
 });
+
+test('sort apps with buttons, save and reload the shared order', async ({ page }) => {
+  let apps = ['a', 'b', 'c'].map(id => ({ id, route:id, name:`App ${id}`, description:'Test', category:'Test', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel' }));
+  await page.route('**/api/apps', route => route.fulfill({ json: apps }));
+  await page.route('**/api/apps/reorder', route => {
+    expect(route.request().headers()['x-dkhub-admin']).toBe('secret');
+    const ids = route.request().postDataJSON().ids;
+    expect(ids).toEqual(['b', 'a', 'c']);
+    apps = ids.map(id => apps.find(app => app.id === id));
+    return route.fulfill({ json: apps });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name:'Sortieren', exact:true }).click();
+  await page.getByRole('button', { name:'App b nach oben' }).click();
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button', { name:'Reihenfolge speichern' }).click();
+  await expect(page.locator('.card h3')).toHaveText(['App b', 'App a', 'App c']);
+  await page.reload();
+  await expect(page.locator('.card h3')).toHaveText(['App b', 'App a', 'App c']);
+});
+
+test('sort apps by dragging their handles', async ({ page }) => {
+  const apps = ['a', 'b', 'c'].map(id => ({ id, route:id, name:`App ${id}`, description:'Test', category:'Test', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel' }));
+  await page.route('**/api/apps', route => route.fulfill({ json: apps }));
+  await page.goto('/');
+  await page.getByRole('button', { name:'Sortieren', exact:true }).click();
+  await page.locator('.sort-row').nth(0).locator('.drag-handle').dragTo(page.locator('.sort-row').nth(2));
+  await expect(page.locator('.sort-name')).toHaveText(['App b', 'App c', 'App a']);
+});
