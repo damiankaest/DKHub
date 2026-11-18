@@ -8,6 +8,7 @@ import { AppCard } from './AppCard';
 import { AddApp } from './AddApp';
 import { RemoveApp } from './RemoveApp';
 import { Director } from './Director';
+import { HubChat } from './HubChat';
 import { ReorderApps } from './ReorderApps';
 import { QuickLinks } from './QuickLinks';
 import { loadIds, saveIds, rememberRecent, toggleFavorite } from './navigation';
@@ -100,6 +101,7 @@ function App() {
           {(!selected || choosing) && status === 'ready' && apps.length > 0 && visibleCount === 0 && <p className="empty">Keine Anwendung für „{query}“ gefunden.</p>}
         </div>
       </main>
+      <HubChat apps={apps} status={status} favorites={favorites} onHome={home} onOpen={app => { setDirector(false); setEditing(null); setRemoving(null); setAdding(false); setChoosing(false); openApp(app); }} />
       {!selected && <footer><span>DKHub <i>·</i> Dein Zuhause. Dein Hub.</span><span>Mit Freude selbst gebaut <span className="heart">♥</span></span></footer>}
     </div>
   </div>;

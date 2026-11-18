@@ -96,6 +96,20 @@ test('search and install a service through DKDirector', async ({ page }) => {
   await expect(page.getByRole('heading', {name:'nginx'})).toBeVisible();
 });
 
+test('chat searches the catalog and opens an embedded app', async ({ page }) => {
+  const apps = [{id:'demo', route:'demo-app', name:'Wetter', description:'Lokale Wetterkarte', category:'Zuhause', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel'}];
+  await page.route('**/api/apps', route => route.fulfill({json: apps}));
+  await page.goto('/');
+  await page.getByRole('button', {name:'DKHub Chat öffnen'}).click();
+  await page.getByLabel('Nachricht an DKHub').fill('Suche Wetter');
+  await page.getByRole('button', {name:'Nachricht senden'}).click();
+  await expect(page.getByText('Dazu habe ich 1 App gefunden:')).toBeVisible();
+  await page.getByLabel('Nachricht an DKHub').fill('Öffne Wetter');
+  await page.getByRole('button', {name:'Nachricht senden'}).click();
+  await expect(page.getByRole('button', {name:'Wetter schließen'})).toBeVisible();
+  await expect(page.getByText('Ich öffne Wetter.')).toBeVisible();
+});
+
 test('sort apps with buttons, save and reload the shared order', async ({ page }) => {
   let apps = ['a', 'b', 'c'].map(id => ({ id, route:id, name:`App ${id}`, description:'Test', category:'Test', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel' }));
   await page.route('**/api/apps', route => route.fulfill({ json: apps }));

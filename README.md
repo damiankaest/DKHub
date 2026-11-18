@@ -28,9 +28,23 @@ npm run dev
 
 Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
-## Apps sortieren
+## DKHub Chat
 
-Auf der Startseite **Sortieren** wählen. Die Einträge können am Griff gezogen oder mit den Pfeilen verschoben werden. Die Reihenfolge wird erst nach Eingabe des Admin-Passworts gespeichert und gilt für alle Geräte. Wenn jemand den Katalog zwischenzeitlich geändert hat, muss die Seite vor dem erneuten Sortieren neu geladen werden.
+Über „Chat“ lassen sich registrierte Apps lokal mit einfachen Befehlen finden und öffnen, zum Beispiel `Suche Musik` oder `Öffne Wetter`. Optional beantwortet der KI-Chat natürlich formulierte Fragen: Jev ordnet die Anfrage ein, ein OpenAI-Sprachmodell formuliert die Antwort und schlägt passende registrierte Apps vor. Diese öffnest du über den jeweiligen Vorschlag. Der KI-Chat installiert und verändert keine Dienste.
+
+Für den optionalen KI-Chat benötigst du separate API-Zugänge von TypeSafe AI und OpenAI sowie ein Admin-Passwort. API-Nutzung kann Kosten verursachen; ein ChatGPT-Abo enthält nicht automatisch API-Guthaben. Vor dem Start beispielsweise unter Linux/macOS setzen:
+
+```bash
+export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
+export DKHUB_AI_ENABLED=1
+export TYPESAFE_API_KEY='DEIN-TYPESAFE-API-SCHLUESSEL'
+export OPENAI_API_KEY='DEIN-OPENAI-API-SCHLUESSEL'
+./start.sh
+```
+
+Unter PowerShell dieselben Variablen mit `$env:DKHUB_AI_ENABLED = '1'` und entsprechend `$env:TYPESAFE_API_KEY`, `$env:OPENAI_API_KEY` und `$env:DKHUB_ADMIN_PASSWORD` setzen, dann das lokale Startskript ausführen. Schlüssel nicht ins Repository schreiben. Optional können `DKHUB_JEV_MODEL` und `DKHUB_OPENAI_MODEL` die Standardmodelle `jev-latest` und `gpt-6-luna` überschreiben; dein API-Zugang muss das gewählte Modell unterstützen.
+
+Im Chat **KI-Chat** wählen und das Admin-Passwort eingeben. Es bleibt nur für die aktuelle Seite im Speicher; über HTTP wird es im Netzwerk unverschlüsselt übertragen. Die Nachricht wird an TypeSafe gesendet; Nachricht, bis zu sechs vorherige Chatbeiträge sowie IDs, Namen, Kategorien und Beschreibungen der ersten 100 Apps werden an OpenAI gesendet. Vertrauliche Informationen gehören nicht in diese Inhalte. OpenAI-Anfragen werden mit `store: false` gestellt. Der lokale Chat funktioniert weiterhin ohne API-Schlüssel. Spracheingabe und WebMCP sind noch nicht implementiert.
 
 ## Favoriten und Verlauf
 

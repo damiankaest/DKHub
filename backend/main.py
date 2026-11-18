@@ -19,6 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from chat_ai import ChatRequest, respond
+
 ROOT = Path(__file__).resolve().parent
 CATALOG = Path(os.environ.get("DKHUB_APPS_FILE", ROOT / ".local" / "apps.json"))
 SEED = ROOT / "apps.json"
@@ -284,6 +286,12 @@ def director_action(service_id: str, action: str, request: Request, admin_passwo
     if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id) or action not in {"start", "stop"}:
         raise HTTPException(404, "Service not found")
     return director_request(f"/services/{service_id}/{action}", "POST", {})
+
+
+@app.post("/api/chat/ai")
+def chat_ai(payload: ChatRequest, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return respond(payload, list_apps())
 
 
 class HubStaticFiles(StaticFiles):
