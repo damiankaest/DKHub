@@ -42,3 +42,15 @@ export async function updateApp(id, app, password) {
   if (!response.ok) throw new Error('Die Anwendung konnte nicht gespeichert werden.');
   return response.json();
 }
+
+export async function reorderApps(ids, password) {
+  const response = await fetch('/api/apps/reorder', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-DKHub-Admin': password },
+    body: JSON.stringify({ ids }),
+  });
+  if (response.status === 503) throw new Error('Bitte zuerst das Admin-Passwort auf dem Server einrichten.');
+  if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
+  if (response.status === 409) throw new Error('Die App-Liste wurde geändert. Bitte lade die Seite neu und sortiere erneut.');
+  if (!response.ok) throw new Error('Die Reihenfolge konnte nicht gespeichert werden.');
+  return response.json();
+}
