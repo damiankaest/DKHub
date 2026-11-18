@@ -96,6 +96,7 @@ def test_hub_to_director_real_service(tmp_path, monkeypatch):
         else:
             pytest.fail('Director did not start')
         backend_path = Path(__file__).resolve().parents[2] / 'backend' / 'main.py'
+        monkeypatch.syspath_prepend(str(backend_path.parent))
         spec = importlib.util.spec_from_file_location('director_test_hub', backend_path)
         hub_module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = hub_module
