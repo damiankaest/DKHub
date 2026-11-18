@@ -28,6 +28,10 @@ npm run dev
 
 Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwicklungsserver ist für lokale Tests gedacht.
 
+## DKHub Chat
+
+Über „Chat“ lassen sich registrierte Apps mit einfachen Befehlen finden und öffnen, zum Beispiel `Suche Musik`, `Öffne Wetter` oder `Zeige meine Favoriten`. Bei mehreren Treffern wird eine Auswahl angeboten; externe Links werden erst nach einem Klick im neuen Tab geöffnet. Der Chat arbeitet regelbasiert im Browser mit dem geladenen Katalog, ohne Modell, Serveranfrage für Chatnachrichten oder dauerhafte Speicherung. Er kann keine Images installieren oder Dienste verändern. Spracheingabe, WebMCP und ein optionales Sprachmodell sind noch nicht implementiert.
+
 ## Favoriten und Verlauf
 
 Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzugefügt werden. Die Navigation zeigt Favoriten und die letzten fünf geöffneten Anwendungen. Die Listen werden nur im jeweiligen Browser gespeichert und nicht zwischen Geräten synchronisiert. Eingebettete Apps werden für eine Live-Vorschau geladen und beim Öffnen im selben Frame vergrößert. Sie bleiben beim Wechsel im Browser bestehen, solange DKHub geöffnet bleibt; einzelne Webseiten können sich selbst neu laden. Die Vorschau stellt echte Verbindungen her und kann Ressourcen benötigen; externe Links zeigen zunächst ein Platzhalterbild. Einbettung kann von Webseiten untersagt werden.
