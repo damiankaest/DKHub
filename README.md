@@ -60,6 +60,14 @@ Die Analyse folgt keinen Weiterleitungen, führt kein JavaScript aus und meldet 
 
 Beim Hinzufügen oder Bearbeiten einer App lässt sich eine Kategorie frei eingeben oder aus bestehenden Kategorien auswählen. Ohne Eingabe wird „Meine Apps“ verwendet. Die Kategorie wird im gemeinsamen App-Katalog gespeichert; bestehende Kategorien bleiben beim Bearbeiten erhalten. Auf der Startseite kann nach Kategorie gefiltert und gleichzeitig nach Name, Kategorie, Kurz- oder ausführlicher Beschreibung gesucht werden. Der Filter gilt für den aktuellen Browserzustand und ändert keine Katalogdaten.
 
+## Kachelbilder, Kategorien und TV-Modus
+
+Beim Hinzufügen oder Bearbeiten einer App kann optional ein Kachelbild hochgeladen oder entfernt werden (PNG, JPEG oder WebP, höchstens 2 MB). Das Backend speichert die Datei unter `backend/.local/images`; ein anderer Pfad ist mit `DKHUB_IMAGE_DIR` möglich. Katalog und Bilder gemeinsam sichern. Bilder sind im Heimnetz für Hub-Nutzer sichtbar. Entfernte oder ersetzte Bilder bleiben zunächst auf dem Server liegen, da sie auch von anderen Einträgen verwendet werden können; ein Aufräumprozess ist nicht enthalten. Fehlgeschlagene App-Speicherungen können ebenfalls ungenutzte Dateien hinterlassen.
+
+Mit Bild lädt die Kachel die eingebettete Webseite erst beim Öffnen. Ohne Bild bleibt die Live-Vorschau wie bisher. Die Kategorien erscheinen als horizontale Reihen, die sich per Scrollen, Wischen oder Pfeilschaltflächen bewegen lassen; Suche und Kategorie-Filter gelten weiterhin.
+
+Der optionale **TV-Modus** vergrößert Kacheln. Wenn eine Kachel fokussiert ist, wechseln Pfeiltasten zwischen Anwendungen und Reihen; Enter öffnet sie. Tab erreicht die übrigen Bedienelemente. Die Weitergabe von Tasten und das Verhalten eingebetteter Apps hängen vom jeweiligen TV-Browser ab; Fire TV separat testen. Der Modus gilt nur für die aktuelle Seite.
+
 ## Favoriten und Verlauf
 
 Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzugefügt werden. Die Navigation zeigt Favoriten und die letzten fünf geöffneten Anwendungen. Die Listen werden nur im jeweiligen Browser gespeichert und nicht zwischen Geräten synchronisiert. Eingebettete Apps werden für eine Live-Vorschau geladen und beim Öffnen im selben Frame vergrößert. Sie bleiben beim Wechsel im Browser bestehen, solange DKHub geöffnet bleibt; einzelne Webseiten können sich selbst neu laden. Die Vorschau stellt echte Verbindungen her und kann Ressourcen benötigen; externe Links zeigen zunächst ein Platzhalterbild. Einbettung kann von Webseiten untersagt werden.

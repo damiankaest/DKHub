@@ -203,3 +203,42 @@ test('filter by category, search descriptions, and edit an app category', async 
   await page.getByLabel('Kategorie filtern').selectOption('Zuhause');
   await expect(page.getByRole('heading',{name:'DKCoach'})).toBeVisible();
 });
+
+test('TV mode navigates category rows and image previews load apps only on open', async ({page}) => {
+  const apps = [
+    {id:'one', route:'one', name:'One', description:'', category:'Fitness', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'App', image:'/api/images/' + 'a'.repeat(64) + '.png'},
+    {id:'two', route:'two', name:'Two', description:'', category:'Fitness', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'App'},
+    {id:'three', route:'three', name:'Three', description:'', category:'Medien', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'App'},
+  ];
+  await page.route('**/api/apps', route => route.fulfill({json:apps}));
+  await page.goto('/');
+  await expect(page.locator('iframe[title="Vorschau One"]')).toHaveCount(0);
+  await expect(page.getByRole('region', {name:'Kategorie Fitness'})).toBeVisible();
+  await page.getByRole('button',{name:'TV-Modus',exact:true}).click();
+  const first = page.getByRole('button',{name:'One öffnen',exact:true});
+  await first.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button',{name:'Two öffnen',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('button',{name:'Three öffnen',exact:true})).toBeFocused();
+  await first.click();
+  await expect(page.locator('iframe[title="Vorschau One"]')).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'One schließen'})).toBeVisible();
+});
+
+test('upload a thumbnail while adding an app', async ({page}) => {
+  let saved;
+  await page.route('**/api/apps', route => route.request().method() === 'GET' ? route.fulfill({json:[]}) : (saved = route.request().postDataJSON(), route.fulfill({status:201,json:{id:'new',route:'new',category:'Meine Apps',icon:'globe',color:'sage',label:'Webseite',...saved}})));
+  await page.route('**/api/admin/images', route => {
+    expect(route.request().headers()['x-dkhub-admin']).toBe('secret');
+    return route.fulfill({status:201,json:{image:'/api/images/' + 'a'.repeat(64) + '.png'}});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'+ Hinzufügen'}).click();
+  await page.getByLabel('Name',{exact:true}).fill('New');
+  await page.getByLabel('Webadresse').fill('https://example.com');
+  await page.getByLabel(/Kachelbild/).setInputFiles({name:'tile.png', mimeType:'image/png', buffer:Buffer.from('89504e470d0a1a0a','hex')});
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button',{name:'Anwendung speichern'}).click();
+  await expect.poll(() => saved?.image).toBe('/api/images/' + 'a'.repeat(64) + '.png');
+});
