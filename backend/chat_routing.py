@@ -1,5 +1,4 @@
 """Translate a single typed Jev decision into a bounded, browser-local action."""
-from math import isfinite
 from fastapi import HTTPException
 
 # A tool name is chosen, never a URL, app ID, or executable argument from a model.
@@ -34,7 +33,7 @@ def decision(response):
         answer = response['answers']['action']
         choice, confidence = answer['choice'], answer['confidence']
         if (answer['type'] != 'choice' or choice not in ROUTES or type(confidence) not in (float, int)
-                or not isfinite(confidence) or not 0 <= confidence <= 1):
+                or not 0 <= confidence <= 1):
             raise ValueError()
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(502, 'Jev hat keine gültige Werkzeugauswahl geliefert.') from exc

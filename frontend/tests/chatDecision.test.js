@@ -74,3 +74,12 @@ test('the recent tool uses current browser history and closing requires the same
   await assert.rejects(f.call(TOOLS.close,{expectedId:5}),/Ungültige/);
   assert.deepEqual(f.changes,['close:a']);
 });
+
+test('DK product names accept word breaks; compound matches are suggestions only',async()=>{
+  const f=fixture();
+  f.state.apps=[{id:'coach',name:'DKCoach',category:'Fitness',mode:'embed'},...apps];
+  const ask=query=>resolveAiReply({intent:'open',tool:TOOLS.open,app_ids:[],reply:'',query},f.call);
+  assert.equal((await ask('Bring mich bitte zu DK Coach.')).navigated,true);
+  assert.deepEqual((await ask('Öffne die App für Platten')).ids,['c']);
+  assert.deepEqual(f.changes,['coach']);
+});
