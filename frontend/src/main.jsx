@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { getApps } from './api';
 import { AppCard } from './AppCard';
@@ -79,14 +79,16 @@ function App() {
     if(location.pathname!==url) history[replace?'replaceState':'pushState']({},'',url);
   }
   function resetFilter() {setQuery('');setCategory('');setScope('all');}
-  function focusTile(id) {
-    requestAnimationFrame(()=>{
-      const tiles = [...(cards.current?.querySelectorAll('.category-row:not([hidden]) .card:not([hidden]) [data-tv-card]')||[])];
-      const el = tiles.find(t=>t.dataset.appId===id)||tiles[0]||catalogHeading.current;
-      el?.focus({preventScroll:true});
-      el?.scrollIntoView({block:'nearest',inline:'nearest'});
-    });
+  function focusVisibleTile(id) {
+    const tiles = [...(cards.current?.querySelectorAll('.category-row:not([hidden]) .card:not([hidden]) [data-tv-card]') || [])];
+    const target = tiles.find(tile => tile.dataset.appId === id) || tiles[0] || catalogHeading.current;
+    target?.focus({preventScroll:true});
+    target?.scrollIntoView({block:'nearest', inline:'nearest'});
   }
+  function focusTile(id) { requestAnimationFrame(() => focusVisibleTile(id)); }
+  // Choose the initial TV target before paint. A later animation frame could
+  // otherwise take focus back just after the first press on a remote.
+  useLayoutEffect(() => { if (tv) focusVisibleTile(); }, [tv]);
   function home(restore=true) {
     setPanel(null);setOpenIds([]);setFocusId(null);setChoosing(false);navigate('/');
     if (restore && (selected || tv)) focusTile(lastLaunch.current||focusId);
@@ -128,7 +130,7 @@ function App() {
     setPanel(null);
   }
   function toggleTV() {
-    if(!tv){ home(false);setTV(true);focusTile(); }
+    if(!tv){ home(false);setTV(true); }
     else {
       setTV(false);
       requestAnimationFrame(()=>{

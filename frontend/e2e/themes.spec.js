@@ -115,6 +115,10 @@ test('mobile: preview is reversible; manual design works without AI and respects
   expect(await fits(page)).toBe(true);
   await page.getByRole('button',{name:'Theme speichern'}).click();
   await page.getByRole('button',{name:'Eigenes Theme entfernen'}).click();
+  await page.getByRole('button',{name:'Behalten'}).click();
+  await expect(page.getByRole('button',{name:'Winterabend',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Eigenes Theme entfernen'}).click();
+  await page.getByRole('button',{name:'Endgültig entfernen'}).click();
   await expect(page.getByRole('button',{name:'Winterabend',exact:true})).toHaveCount(0);
   await expect(page.locator('html')).toHaveAttribute('data-motif','grid');
   expect(db.active).toBe('light');

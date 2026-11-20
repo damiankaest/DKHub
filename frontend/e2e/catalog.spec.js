@@ -1,4 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { defaultTheme } from '../src/themes/palette.js';
+
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/theme', r => r.fulfill({json:defaultTheme}));
+  await page.route('**/api/images/*', r => r.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+BrpYAAAAASUVORK5CYII=', 'base64')}));
+});
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   test(`preview stays loaded when opened (${viewport.width}px)`, async ({ page }) => {
@@ -142,6 +148,7 @@ test('sort apps by dragging their handles', async ({ page }) => {
 test('configure AI and review an analyzed app before saving', async ({ page }) => {
   let saved;
   await page.route('**/api/apps', route => route.request().method() === 'GET' ? route.fulfill({json:[]}) : (saved = route.request().postDataJSON(), route.fulfill({status:201,json:{id:'test',route:'sport',category:'Meine Apps',icon:'globe',color:'sage',label:'Webseite',...saved}})));
+  await page.route('**/api/admin/themes/list', r => r.fulfill({json:{active:'light',themes:[defaultTheme]}}));
   await page.route('**/api/admin/settings/read', route => route.fulfill({json:{enabled:false, typesafe_configured:false, openai_configured:false, jev_model:'jev-latest', openai_model:'test-model'}}));
   await page.route('**/api/admin/settings', route => {
     expect(route.request().postDataJSON().openai_key).toBe('key');
@@ -218,7 +225,7 @@ test('TV mode navigates category rows and image previews load apps only on open'
   await expect(page.getByRole('region', {name:'Kategorie Fitness'})).toBeVisible();
   await page.getByRole('button',{name:'TV-Modus',exact:true}).click();
   const first = page.getByRole('button',{name:'One öffnen',exact:true});
-  await first.focus();
+  await expect(first).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('button',{name:'Two öffnen',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');
