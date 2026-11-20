@@ -138,3 +138,35 @@ test('sort apps by dragging their handles', async ({ page }) => {
   await page.locator('.sort-row').nth(0).locator('.drag-handle').dragTo(page.locator('.sort-row').nth(2));
   await expect(page.locator('.sort-name')).toHaveText(['App b', 'App c', 'App a']);
 });
+
+test('configure AI and review an analyzed app before saving', async ({ page }) => {
+  let saved;
+  await page.route('**/api/apps', route => route.request().method() === 'GET' ? route.fulfill({json:[]}) : (saved = route.request().postDataJSON(), route.fulfill({status:201,json:{id:'test',route:'sport',category:'Meine Apps',icon:'globe',color:'sage',label:'Webseite',...saved}})));
+  await page.route('**/api/admin/settings/read', route => route.fulfill({json:{enabled:false, typesafe_configured:false, openai_configured:false, jev_model:'jev-latest', openai_model:'test-model'}}));
+  await page.route('**/api/admin/settings', route => {
+    expect(route.request().postDataJSON().openai_key).toBe('key');
+    return route.fulfill({json:{enabled:true, typesafe_configured:false, openai_configured:true, jev_model:'jev-latest', openai_model:'test-model'}});
+  });
+  await page.route('**/api/admin/analyze', route => {
+    expect(route.request().headers()['x-dkhub-admin']).toBe('secret');
+    return route.fulfill({json:{description:'Sport-App', manifest:'Training und Gewichte verwalten.'}});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'Admin',exact:true}).click();
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button',{name:'Anmelden'}).click();
+  await page.getByLabel(/KI aktivieren/).check();
+  await page.getByLabel(/OpenAI API-Schlüssel/).fill('key');
+  await page.getByRole('button',{name:'Einstellungen speichern'}).click();
+  await expect(page.getByText('Einstellungen gespeichert.')).toBeVisible();
+  await page.getByRole('button',{name:'Zurück',exact:true}).click();
+  await page.getByRole('button',{name:'+ Hinzufügen'}).click();
+  await page.getByLabel('Name',{exact:true}).fill('Sport');
+  await page.getByLabel('Webadresse').fill('http://192.168.1.5:3000');
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button',{name:'Mit KI beschreiben'}).click();
+  await expect(page.getByLabel(/Ausführliche Beschreibung/)).toHaveValue('Training und Gewichte verwalten.');
+  await page.getByLabel(/Ausführliche Beschreibung/).fill('Geprüfte Beschreibung');
+  await page.getByRole('button',{name:'Anwendung speichern'}).click();
+  await expect.poll(() => saved?.manifest).toBe('Geprüfte Beschreibung');
+});

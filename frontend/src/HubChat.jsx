@@ -48,7 +48,7 @@ export function HubChat({ apps, status, favorites, onOpen, onHome }) {
     {visible && <section className="chat-panel" aria-label="DKHub Chat">
       <header className="chat-header"><div><strong>DKHub Chat</strong><small>{mode === 'ai' ? 'KI · Jev + Sprachmodell' : 'Regelbasiert · Deine Apps'}</small></div><button type="button" onClick={() => setVisible(false)} aria-label="Chat schließen">×</button></header>
       <div className="chat-mode"><button type="button" aria-pressed={mode === 'local'} onClick={() => {setMode('local'); setPassword('');}}>Lokal</button><button type="button" aria-pressed={mode === 'ai'} onClick={() => setMode('ai')}>KI-Chat</button></div>
-      {mode === 'ai' && <div className="chat-ai-info"><p>Deine Nachricht geht an TypeSafe; Nachricht, Chatverlauf sowie App-Namen, Kategorien und Beschreibungen gehen an OpenAI. Es können API-Kosten entstehen.</p><label>Admin-Passwort<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /></label></div>}
+      {mode === 'ai' && <div className="chat-ai-info"><p>Deine Nachricht geht an TypeSafe; Nachricht, Chatverlauf sowie App-Namen, Kategorien und Kurz- und ausführliche Beschreibungen gehen an OpenAI. Es können API-Kosten entstehen.</p><label>Admin-Passwort<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /></label></div>}
       <div className="chat-messages" role="log" aria-live="polite" aria-label="Chatverlauf">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}><p>{message.text}</p>{message.ids?.map(id => {
         const app = apps.find(item => item.id === id);
         if (!app) return null;
