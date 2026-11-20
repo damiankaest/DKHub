@@ -65,7 +65,7 @@ test('try an embedded page before saving', async ({ page }) => {
   await page.route('**/api/apps', route => route.fulfill({ json: [] }));
   await page.goto('/');
   await expect(page.getByText('DEIN PERSÖNLICHER HUB')).toHaveCount(0);
-  await page.getByRole('button', { name:'+ Hinzufügen' }).click();
+  await page.getByRole('button', { name:'App hinzufügen' }).click();
   await page.getByLabel('Webadresse').fill('/demo.html');
   await page.getByRole('button', { name:'Einbettung testen' }).click();
   const preview = page.frameLocator('iframe[title="Einbettungsvorschau"]');
@@ -152,15 +152,16 @@ test('configure AI and review an analyzed app before saving', async ({ page }) =
     return route.fulfill({json:{description:'Sport-App', manifest:'Training und Gewichte verwalten.'}});
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'Admin',exact:true}).click();
+  await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
   await page.getByLabel('Admin-Passwort').fill('secret');
   await page.getByRole('button',{name:'Anmelden'}).click();
+  await page.getByRole('button',{name:'KI-Zugänge',exact:true}).click();
   await page.getByLabel(/KI aktivieren/).check();
   await page.getByLabel(/OpenAI API-Schlüssel/).fill('key');
   await page.getByRole('button',{name:'Einstellungen speichern'}).click();
   await expect(page.getByText('Einstellungen gespeichert.')).toBeVisible();
   await page.getByRole('button',{name:'Zurück',exact:true}).click();
-  await page.getByRole('button',{name:'+ Hinzufügen'}).click();
+  await page.getByRole('button',{name:'App hinzufügen'}).click();
   await page.getByLabel('Name',{exact:true}).fill('Sport');
   await page.getByLabel('Webadresse').fill('http://192.168.1.5:3000');
   await page.getByLabel('Admin-Passwort').fill('secret');
@@ -192,7 +193,8 @@ test('filter by category, search descriptions, and edit an app category', async 
   await page.getByLabel('Anwendungen suchen').fill('Musik');
   await expect(page.getByText('Keine Anwendungen für diese Suche und Kategorie gefunden.')).toBeVisible();
   await page.getByLabel('Anwendungen suchen').clear();
-  await page.locator('.card').filter({has:page.getByRole('heading',{name:'DKCoach'})}).getByRole('button',{name:'Bearbeiten'}).click();
+  await page.getByRole('button',{name:'Optionen für DKCoach'}).click();
+  await page.getByRole('button',{name:'Bearbeiten',exact:true}).click();
   await page.getByLabel('Kategorie',{exact:true}).fill('Zuhause');
   await page.getByLabel('Admin-Passwort').fill('secret');
   await page.getByRole('button',{name:'Anwendung speichern'}).click();
@@ -234,7 +236,7 @@ test('upload a thumbnail while adding an app', async ({page}) => {
     return route.fulfill({status:201,json:{image:'/api/images/' + 'a'.repeat(64) + '.png'}});
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'+ Hinzufügen'}).click();
+  await page.getByRole('button',{name:'App hinzufügen'}).click();
   await page.getByLabel('Name',{exact:true}).fill('New');
   await page.getByLabel('Webadresse').fill('https://example.com');
   await page.getByLabel(/Kachelbild/).setInputFiles({name:'tile.png', mimeType:'image/png', buffer:Buffer.from('89504e470d0a1a0a','hex')});

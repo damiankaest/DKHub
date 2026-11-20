@@ -1,0 +1,52 @@
+.sidebar,.mobile-menu,.mobile-bar {background:var(--rail); color:#f3f7f8; --accent-ink:var(--rail-glow); color-scheme:dark}
+.sidebar {display:flex; flex-direction:column; gap:24px; position:sticky; top:0; width:196px; height:100vh; height:100dvh; padding:24px 12px 12px; border-inline-end:1px solid #ffffff16}
+.brand {display:inline-flex; align-items:center; gap:10px; width:fit-content; margin-inline:6px; padding:0; color:#f8fbfc; background:transparent; font-size:1.48rem; font-weight:780; letter-spacing:-.07em; line-height:1}
+.brand b {color:var(--rail-glow); font-weight:620}
+.brand-mark {color:var(--rail-glow)}
+.rail-nav {display:flex; flex-direction:column; flex:1; min-height:0; gap:20px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--rail-tint) transparent}
+.rail-section,.nav-quick,.quick-group,.quick-links {display:grid; gap:3px; min-width:0}
+.nav-heading,.quick-title {padding:0 10px 6px; color:#a7bac3; font-size:.65rem}
+.nav-item,.quick-link {display:flex; align-items:center; gap:10px; min-height:39px; width:100%; padding:7px 10px; border-radius:var(--r-sm); background:transparent; color:#d1dddf; font-size:.9rem; font-weight:550; text-align:left; text-decoration:none}
+.nav-item.active {background:var(--rail-tint); color:#fff; box-shadow:inset 3px 0 0 var(--rail-glow)}
+.nav-item.active svg {color:var(--rail-glow)}
+.nav-item:hover:not(:disabled),.quick-link:hover,.quick-link.current {background:#ffffff13; color:#fff}
+.nav-quick {gap:16px}
+.nav-quick:empty {display:none}
+.quick-link {min-height:31px; padding-block:4px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.84rem}
+.quick-link::before {content:""; display:inline-block; width:6px; height:6px; margin:0 10px 2px 2px; border:1px solid var(--rail-glow); border-radius:50%}
+.rail-bottom {display:grid; gap:8px; padding-top:10px; border-top:1px solid #ffffff26}
+.theme-badge {display:flex; align-items:center; gap:9px; padding:7px; color:#f4faf9; background:var(--rail-tint); border-radius:var(--r-sm); text-align:left; min-width:0}
+.theme-badge-art {display:block; position:relative; flex:none; width:33px; height:33px; overflow:hidden; border-radius:calc(var(--r-sm) * .7)}
+.theme-badge > span:nth-child(2) {min-width:0; flex:1}
+.theme-badge small,.theme-badge strong {display:block; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.theme-badge small {color:#becfd3; font-size:.68rem}
+.theme-badge strong {font-size:.85rem}
+.theme-badge > svg {color:var(--rail-glow)}
+.sidebar.compact {width:66px; padding-inline:9px}
+.sidebar.compact .brand {margin-inline:auto}
+.sidebar.compact :is(.brand span,.nav-heading,.nav-item span,.nav-quick,.theme-badge > :not(:first-child)) {display:none}
+.sidebar.compact .nav-item,.sidebar.compact .theme-badge {justify-content:center}
+.sidebar.compact .rail-nav {gap:15px}
+.sidebar.compact .collapse svg {transform:rotate(180deg)}
+.mobile-bar,.mobile-quick {display:none}
+.mobile-menu {width:min(320px,94vw); max-height:100dvh; height:100%; margin:0 0 0 auto; border:0; padding:18px; overflow:auto}
+.mobile-menu::backdrop {background:#0c1728a8}
+.mobile-menu nav,.mobile-menu > div {display:grid; gap:19px}
+.drawer-head,.mobile-bar,.mobile-bar > div {align-items:center}
+.drawer-head {display:flex; justify-content:space-between; font-size:1.25rem}
+.mobile-menu .icon-button,.mobile-bar .icon-button {color:#e8efef}
+.mobile-menu .icon-button:hover,.mobile-bar .icon-button:hover {background:var(--rail-tint); color:#fff}
+@media(max-width:740px) {
+  .sidebar {display:none}
+  .mobile-bar {position:sticky; top:0; z-index:8; display:flex; height:52px; padding:0 10px; justify-content:space-between; flex:none; border-bottom:1px solid #ffffff25}
+  .mobile-bar .brand {font-size:1.25rem}
+  .mobile-bar .brand-mark {width:29px; height:29px}
+  .mobile-bar > div {display:flex; gap:3px}
+  .mobile-bar .icon-button {width:42px}
+  .mobile-quick {display:flex; align-items:baseline; gap:14px; overflow-x:auto; padding:6px 16px; border-bottom:1px solid var(--line); scrollbar-width:thin}
+  .mobile-quick :is(.quick-group,.quick-links) {display:flex; align-items:baseline; flex:none; gap:5px}
+  .mobile-quick .quick-title {padding:0 3px 0 0; color:var(--muted)}
+  .mobile-quick .quick-link {min-height:32px; padding:5px 9px; background:var(--soft); color:var(--accent-ink); width:auto}
+  .mobile-quick .quick-link::before {display:none}
+  .mobile-menu .nav-item,.mobile-menu .quick-link {min-height:44px}
+}

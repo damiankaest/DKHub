@@ -1,43 +1,50 @@
 import React, { useState } from 'react';
+import { ThemeStudio } from './themes/ThemeStudio';
+import { Icon } from './Icon';
 
-export function AdminSettings({ onClose }) {
+const emptyKeys = { typesafe_key:'', openai_key:'' };
+export function AdminSettings({ onClose, appearance }) {
   const [password, setPassword] = useState('');
   const [data, setData] = useState(null);
-  const [keys, setKeys] = useState({ typesafe_key:'', openai_key:'' });
-  const [message, setMessage] = useState('');
+  const [keys, setKeys] = useState(emptyKeys);
+  const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
-  async function call(path, body) {
-    const response = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json', 'X-DKHub-Admin':password}, body:JSON.stringify(body)});
-    if (!response.ok) throw new Error(response.status === 403 ? 'Admin-Passwort oder Anfrage ungültig.' : 'Einstellungen konnten nicht verarbeitet werden.');
-    return response.json();
-  }
-  async function login(event) {
-    event.preventDefault(); setBusy(true); setMessage('');
-    try { setData(await call('/api/admin/settings/read', {})); } catch (e) { setMessage(e.message); } finally { setBusy(false); }
-  }
-  async function save(event) {
-    event.preventDefault(); setBusy(true); setMessage('');
+  const [page, setPage] = useState('design');
+
+  async function submit(path, body, success) {
+    setBusy(true); setMessage(null);
     try {
-      const update = {enabled:data.enabled, jev_model:data.jev_model, openai_model:data.openai_model};
-      for (const [key,value] of Object.entries(keys)) if (value) update[key] = value;
-      setData(await call('/api/admin/settings', update)); setKeys({typesafe_key:'',openai_key:''}); setMessage('Einstellungen gespeichert.');
-    } catch (e) { setMessage(e.message); } finally { setBusy(false); }
+      const res = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json', 'X-DKHub-Admin':password}, body:JSON.stringify(body)});
+      if (!res.ok) throw new Error(res.status === 403 ? 'Admin-Passwort oder Anfrage ungültig.' : res.status === 503 ? 'Auf dem Server ist kein Admin-Passwort eingerichtet.' : 'Einstellungen konnten nicht geladen oder gespeichert werden.');
+      setData(await res.json()); setKeys(emptyKeys);
+      if (success) setMessage({text:success});
+    } catch (e) { setMessage({error:true, text:e.message}); }
+    finally { setBusy(false); }
   }
-  async function remove(key) {
-    setBusy(true); setMessage('');
-    try { setData(await call('/api/admin/settings', {[key]:''})); setMessage('Schlüssel entfernt.'); } catch (e) { setMessage(e.message); } finally { setBusy(false); }
+  function save(e) {
+    e.preventDefault();
+    const update = {enabled:data.enabled, jev_model:data.jev_model, openai_model:data.openai_model};
+    for (const [key,value] of Object.entries(keys)) if (value) update[key] = value;
+    submit('/api/admin/settings', update, 'Einstellungen gespeichert.');
   }
-  return <section className="add-panel" aria-labelledby="admin-title"><div className="eyebrow">VERWALTUNG</div><h2 id="admin-title">Admin-Zentrale</h2>
-    <p>KI-Einstellungen und API-Schlüssel werden auf dem Server gespeichert. Bei HTTP werden Passwort und Schlüssel im Netzwerk unverschlüsselt übertragen.</p>
-    {!data ? <form className="add-form" onSubmit={login}><label>Admin-Passwort<input type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" /></label><button className="button primary" disabled={busy}>Anmelden</button></form> :
-      <form className="add-form" onSubmit={save}><label><input type="checkbox" checked={data.enabled} onChange={e => setData({...data, enabled:e.target.checked})} /> KI aktivieren</label>
-        <label>TypeSafe API-Schlüssel ({data.typesafe_configured ? 'hinterlegt' : 'nicht hinterlegt'})<input type="password" value={keys.typesafe_key} onChange={e => setKeys({...keys, typesafe_key:e.target.value})} placeholder="Zum Ändern eingeben" autoComplete="new-password" /></label>
-        {data.typesafe_configured && <button className="button secondary" type="button" disabled={busy} onClick={() => remove('typesafe_key')}>TypeSafe-Schlüssel entfernen</button>}
-        <label>OpenAI API-Schlüssel ({data.openai_configured ? 'hinterlegt' : 'nicht hinterlegt'})<input type="password" value={keys.openai_key} onChange={e => setKeys({...keys, openai_key:e.target.value})} placeholder="Zum Ändern eingeben" autoComplete="new-password" /></label>
-        {data.openai_configured && <button className="button secondary" type="button" disabled={busy} onClick={() => remove('openai_key')}>OpenAI-Schlüssel entfernen</button>}
-        <label>Jev-Modell<input value={data.jev_model} maxLength="100" required onChange={e => setData({...data, jev_model:e.target.value})}/></label>
-        <label>OpenAI-Modell<input value={data.openai_model} maxLength="100" required onChange={e => setData({...data, openai_model:e.target.value})}/></label>
-        <button className="button primary" disabled={busy}>Einstellungen speichern</button></form>}
-    {message && <p role="status">{message}</p>}<button className="button secondary" type="button" onClick={onClose}>Zurück</button>
+  return <section className={'settings-panel panel ' + (!data ? 'login-panel' : '')} aria-labelledby="admin-title">
+    <div className="panel-title"><div><span className="kicker">VERWALTUNG</span><h1 id="admin-title">Einstellungen</h1></div>
+      <button className="button quiet" onClick={onClose}>Zurück</button></div>
+    {!data ? <><div className="login-emblem"><Icon name="settings" size={25}/></div><h2>Admin-Zugang</h2><p>Hier gestaltest du den Hub für alle Geräte und verwaltest die KI-Zugänge.</p>
+      <form className="add-form" onSubmit={e=>{e.preventDefault(); submit('/api/admin/settings/read', {});}}>
+        <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label>
+        <button className="button primary" disabled={busy}>{busy ? 'Prüft …' : 'Anmelden'}</button></form></> : <>
+      <nav className="segmented settings-pages" aria-label="Einstellungsbereiche">{[['design','Design-Studio','palette'],['ai','KI-Zugänge','spark']].map(([id,label,icon])=>
+        <button type="button" key={id} aria-pressed={page === id} disabled={busy} onClick={()=>{setPage(id);setMessage(null);}}><Icon name={icon} size={16}/>{label}</button>)}</nav>
+      {page === 'design' ? <ThemeStudio password={password} appearance={appearance} aiReady={data.enabled && data.openai_configured}/> :
+        <form className="add-form" onSubmit={save}><div className="section-intro"><h2>KI-Zugänge</h2><p>Schlüssel bleiben auf dem Server. Verwende zum Eingeben localhost oder HTTPS.</p></div>
+          <label className="check-line"><input type="checkbox" checked={data.enabled} onChange={e=>setData({...data,enabled:e.target.checked})}/>KI aktivieren</label>
+          {[['typesafe_key','typesafe_configured','TypeSafe','jev_model','Jev'],['openai_key','openai_configured','OpenAI','openai_model','OpenAI']].map(([key,flag,provider,model,title])=>
+            <fieldset key={key}><legend>{provider}</legend><label>{provider} API-Schlüssel ({data[flag] ? 'hinterlegt' : 'nicht hinterlegt'})<input type="password" maxLength={500} value={keys[key]} onChange={e=>setKeys({...keys,[key]:e.target.value})} placeholder="Zum Ändern eingeben" autoComplete="new-password"/></label>
+              <label>{title}-Modell<input value={data[model]} maxLength={100} required onChange={e=>setData({...data,[model]:e.target.value})}/></label>
+              {data[flag] && <button className="button danger-quiet" type="button" disabled={busy} onClick={()=>submit('/api/admin/settings', {[key]:''}, 'Schlüssel entfernt.')}>{provider}-Schlüssel entfernen</button>}</fieldset>)}
+          <button className="button primary" disabled={busy}>Einstellungen speichern</button></form>}
+    </>}
+    {message && <p className={'feedback ' + (message.error ? 'error' : '')} role={message.error?'alert':'status'}>{message.text}</p>}
   </section>;
 }

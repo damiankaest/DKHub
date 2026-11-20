@@ -1,0 +1,80 @@
+.catalog-title,.filter-bar,.catalog-filters,.category-heading,.card-title,.card-meta,.tv-tools {display:flex; align-items:center; gap:12px}
+.catalog-title,.filter-bar,.card-meta,.tv-tools {justify-content:space-between}
+.catalog-title {padding-bottom:23px}
+.catalog-title h1,.panel-title h1,.director-head h1 {font-size:clamp(2rem,3.4vw,3.2rem); font-weight:720; letter-spacing:-.06em}
+.catalog-title p {margin-top:6px; color:var(--muted); font-size:.92rem}
+.filter-bar {flex-wrap:wrap; padding-block:14px; border-block:1px solid var(--line)}
+.catalog-filters {gap:8px; flex-wrap:wrap; min-width:0}
+.search,.select-filter {display:flex; align-items:center; gap:8px; min-height:40px; padding:0 10px; border:1px solid var(--control-line); border-radius:var(--r-sm); background:var(--surface); color:var(--muted)}
+.search:focus-within,.select-filter:focus-within {outline:2px solid var(--accent-ink); outline-offset:2px}
+.search input,.select-filter select {border:0; padding:8px 0; min-width:0; background:transparent; color:var(--ink); outline:0; font-size:.86rem}
+.search input {width:clamp(120px,13vw,205px)}
+.select-filter {position:relative}
+.select-filter select {appearance:none; flex:1; padding-right:19px; cursor:pointer}
+.select-filter > svg:last-child {position:absolute; right:9px; pointer-events:none}
+select option {background:var(--surface); color:var(--ink)}
+.mini-count,.category-count {font-size:.74rem; font-weight:670; font-variant-numeric:tabular-nums; border-radius:20px; padding:1px 7px; background:var(--soft); color:var(--accent-ink)}
+.cards {display:grid; gap:23px 24px; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:26px}
+.category-row {grid-column:1/-1; min-width:0}
+.category-heading {gap:9px; min-height:30px; margin-bottom:9px}
+.category-heading h2 {font-size:clamp(1.13rem,1.65vw,1.45rem); letter-spacing:-.037em; font-weight:690; overflow-wrap:anywhere}
+.row-rule {height:1px; background:var(--line); flex:1; min-width:12px; margin-left:3px}
+.carousel-controls {display:flex; gap:3px}
+.carousel-controls .icon-button {width:32px; min-height:32px; border:1px solid var(--line); background:var(--surface)}
+.category-track {display:grid; grid-auto-flow:column; grid-auto-columns:clamp(238px,28%,355px); gap:14px; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:thin; scrollbar-color:var(--control-line) transparent; padding:5px 4px 9px; margin:-5px -4px -9px}
+.category-row.single .category-track {grid-auto-columns:min(100%,425px)}
+.card {min-width:0; position:relative; isolation:isolate; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:0 2px 5px #132b3010; scroll-snap-align:start}
+.card:not(.card-open):hover {border-color:var(--control-line); box-shadow:0 4px 13px #102b3318}
+.card-preview {position:relative; flex:none; overflow:hidden; aspect-ratio:2.22; background:var(--art-base); border-radius:calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0; isolation:isolate; border-bottom:1px solid var(--line)}
+.theme-art,.card-image {position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover}
+.card-preview iframe {position:absolute; inset:0; width:200%; height:200%; transform:scale(.5); transform-origin:0 0; border:0; pointer-events:none; background:white}
+.cover-badge {position:absolute; bottom:9px; left:10px; display:flex; align-items:center; gap:5px; padding:3px 7px; background:#111c2be6; color:#fff; border:1px solid #ffffff40; border-radius:5px; font-size:.68rem; font-weight:650}
+.card-details {display:flex; flex:1; flex-direction:column; gap:4px; padding:12px 14px 8px}
+.card-title {justify-content:space-between; gap:4px}
+.card-title h3 {min-width:0; font-size:1.12rem; font-weight:680; letter-spacing:-.025em; overflow-wrap:anywhere}
+.card-launch {display:inline; padding:0; background:none; font:inherit; text-align:left; color:var(--ink); text-decoration:none}
+.card-launch::after {content:""; position:absolute; inset:0; z-index:1; border-radius:var(--r)}
+.card-launch:focus-visible {outline:0}
+.card-launch:focus-visible::after {outline:3px solid var(--accent-ink); outline-offset:1px}
+.card-details p {flex:1; font-size:.86rem; color:var(--muted); line-height:1.45; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden}
+.card-meta {margin-top:5px; border-top:1px solid var(--line); padding-top:3px}
+.card-meta small {color:var(--muted); font-size:.73rem}
+.card-favorite,.card-options {position:relative; z-index:2}
+.card-favorite,.card-options .icon-button {min-height:32px; width:32px}
+.card-favorite[aria-pressed=true],.viewer [aria-pressed=true] {color:var(--accent-ink); background:var(--soft)}
+.options-pop {position:absolute; display:grid; z-index:3; inset:auto 0 calc(100% + 2px) auto; min-width:132px; border-radius:var(--r-sm); padding:4px; background:var(--surface); border:1px solid var(--control-line); box-shadow:0 8px 22px #11283830}
+.options-pop button {text-align:left; background:transparent; padding:8px; border-radius:4px; color:var(--ink)}
+.options-pop button:hover {background:var(--soft)}
+.options-pop .destructive {color:var(--danger)}
+.catalog-state {display:grid; place-items:center; text-align:center; gap:10px; margin:26px 0; min-height:175px; padding:24px; background:var(--surface); border:1px dashed var(--control-line); border-radius:var(--r)}
+.catalog-state p {color:var(--muted); max-width:48ch}
+.state-icon {width:43px; height:43px; display:grid; place-items:center; background:var(--soft); color:var(--accent-ink); border-radius:var(--r-sm)}
+.tv-tools {margin-bottom:18px}
+.tv-tools span {display:flex; align-items:center; gap:8px; color:var(--accent-ink); font-weight:680}
+.tv-mode .category-row {grid-column:1/-1}
+.tv-mode .category-track {grid-auto-columns:clamp(270px,33%,475px)}
+.tv-mode .card-launch:focus-visible::after {outline-width:4px; outline-offset:0; box-shadow:inset 0 0 0 2px var(--surface)}
+@media(min-width:950px) {
+  .category-row.single {grid-column:auto}
+  .category-row.single .category-track {grid-auto-columns:100%}
+  .category-row.single .card-preview {aspect-ratio:2.75; max-height:215px}
+}
+@media(max-width:740px) {
+  .catalog-title {align-items:flex-start; padding-bottom:16px; gap:8px}
+  .catalog-title h1 {font-size:clamp(1.65rem,6vw,2.3rem)}
+  .catalog-title .primary {font-size:.83rem; padding-inline:10px}
+  .filter-bar {align-items:stretch; gap:10px}
+  .catalog-filters {flex:1 1 100%; flex-wrap:nowrap}
+  .search {flex:1; min-width:0}
+  .search input {width:100%}
+  .select-filter {max-width:49%}
+  .cards {display:block; margin-top:22px}
+  .category-row + .category-row {margin-top:22px}
+  .category-track,.tv-mode .category-track {grid-auto-columns:min(84%,330px)}
+  .category-row.single .category-track {grid-auto-columns:min(100%,390px)}
+  .card-favorite,.card-options .icon-button {width:40px; min-height:40px}
+}
+@media(max-width:365px) {
+  .catalog-title .primary {white-space:normal}
+  .filter-bar .select-filter > svg:first-child {display:none}
+}

@@ -18,7 +18,7 @@ export function RemoveApp({ app, onRemoved, onCancel }) {
     <form className="add-form" onSubmit={submit}>
       <label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <div className="form-actions"><button className="button primary" disabled={busy}>Kachel entfernen</button><button type="button" className="button secondary" onClick={onCancel} disabled={busy}>Abbrechen</button></div>
+      <div className="form-actions"><button className="button danger" disabled={busy}>Kachel entfernen</button><button type="button" className="button secondary" onClick={onCancel} disabled={busy}>Abbrechen</button></div>
     </form>
   </section>;
 }
