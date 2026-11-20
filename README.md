@@ -32,27 +32,44 @@ Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwickl
 
 Öffne **Assistent** in der Navigation. Auf dem Desktop sitzt der Chat rechts neben der Bibliothek oder deiner laufenden App. Auf dem Tablet ist er eine ausblendbare Seitenleiste, auf dem Handy eine Vollbildansicht. Nach dem Öffnen einer App ist der Platz dort wieder frei. Der Verlauf bleibt beim Ein- und Ausblenden im aktuellen Tab erhalten; **Neuer Chat** setzt den jeweiligen Modus zurück.
 
-**Lokal** funktioniert ohne Schlüssel. Tippe beispielsweise `Schallplatten`, `Meine Favoriten`, `Öffne Wetter`, `Zur Bibliothek` oder `App hinzufügen`. Die Suche berücksichtigt auch die hinterlegte Servicebeschreibung. Bei mehreren Treffern wählst du selbst; externe Seiten öffnest du mit einem Link. **KI-Chat** versteht frei formulierte Anliegen: Jev ordnet sie ein. Für App-Empfehlungen und freie Antworten kommt OpenAI hinzu; Favoriten, der vollständige Katalog und einfache Navigation brauchen keinen zweiten Modellaufruf. Eine eindeutige eingebettete App kann der Assistent auf ausdrücklichen Öffnungswunsch direkt starten.
+**Lokal** funktioniert ohne Schlüssel und ohne Anbieteraufruf. **KI-Chat** versteht auch frei formulierte Befehle: „Bring mich bitte zu DKCoach“, „Welche Apps haben mit Schallplatten zu tun?“, „Was hatte ich zuletzt offen?“ oder „Schließe die aktuelle App“.
+
+Für die Steuerung wählt **Jev von TypeSafe mit einer einzigen Anfrage** ein Werkzeug. TypeSafe erhält nur die aktuelle Nachricht. Name, Route und Suchbegriffe werden im Browser mit deinem Katalog abgeglichen. Ein eindeutig genannter Name kann eine eingebettete App direkt öffnen; bei mehreren Treffern, einer bloßen Themenbeschreibung oder externen Links wählst du selbst. Ist Jevs Entscheidung unsicher, fragt der Chat nach. Erst für eine Empfehlung, einen Vergleich oder eine freie Antwort kann zusätzlich OpenAI zum Einsatz kommen. Ohne OpenAI-Schlüssel gibt es für Empfehlungen eine Katalogsuche. Die Antwort zeigt an, welche Anbieter beteiligt waren.
 
 ### WebMCP im Heimnetz
 
-Der geöffnete Hub registriert fünf Werkzeuge über `document.modelContext`: Apps suchen (`dkhub_search_apps`), Favoriten lesen (`dkhub_list_favorites`), eine registrierte App öffnen (`dkhub_open_app`), die Bibliothek anzeigen (`dkhub_show_library`) und das Hinzufügen vorbereiten (`dkhub_prepare_add_app`). Die Werkzeuge bleiben bei geschlossener Chatleiste verfügbar. Das letzte Werkzeug öffnet nur das bestehende Formular. Es speichert oder installiert nichts. Der Chat verwendet ausschließlich Werkzeuge des Hub-Dokuments; eingebettete Apps werden nicht ferngesteuert.
+Der geöffnete Hub registriert sieben Werkzeuge über `document.modelContext`:
+
+| Chatbeispiel | Werkzeug |
+| --- | --- |
+| „Finde Apps für Musik“ / „Zeige alle Apps“ | `dkhub_search_apps` |
+| „Öffne DKCoach“ | `dkhub_open_app` |
+| „Meine Favoriten“ | `dkhub_list_favorites` |
+| „Was war zuletzt offen?“ | `dkhub_list_recent` |
+| „Zur Bibliothek“ | `dkhub_show_library` |
+| „Schließe die aktuelle App“ | `dkhub_close_active_app` (nur die Ansicht; der Dienst läuft weiter) |
+| „App hinzufügen“ | `dkhub_prepare_add_app` (öffnet das Admin-Formular) |
+
+Die Werkzeuge bleiben auch bei geschlossener Chatleiste verfügbar. Favoriten und Verlauf gehören zum jeweiligen Browser. Werkzeuge des Hub-Dokuments steuern nur den Hub. Beim Wechsel der aktiven App verwirft der Assistent einen verspäteten Schließbefehl.
 
 Steht unten im Chat **WebMCP**, führt der Browser diese Aktionen über seine native Schnittstelle aus. Dazu sind ein unterstützender Browser und ein sicherer Kontext (HTTPS oder localhost) nötig. Beim üblichen Zugriff über eine HTTP-IP im Heimnetz oder ohne die Browserfunktion steht dort **Hub-Werkzeuge**: dieselben Aktionen laufen direkt im Hub. Zum Testen in Chrome siehe die [WebMCP-Anleitung](https://developer.chrome.com/docs/ai/webmcp). Es ist kein MCP-Server zu installieren.
 
-Für den optionalen KI-Chat benötigst du separate API-Zugänge von TypeSafe AI und OpenAI sowie ein Admin-Passwort. API-Nutzung kann Kosten verursachen; ein ChatGPT-Abo enthält nicht automatisch API-Guthaben. Vor dem Start beispielsweise unter Linux/macOS setzen:
+Für die KI-Steuerung genügen ein TypeSafe-API-Schlüssel und das Hub-Admin-Passwort. Unter **Einstellungen → KI-Zugänge** die KI aktivieren und den TypeSafe-Schlüssel hinterlegen. OpenAI ist optional. API-Nutzung kann Kosten verursachen; ein ChatGPT-Abo enthält nicht automatisch API-Guthaben. Vor dem Start beispielsweise unter Linux/macOS setzen:
 
 ```bash
 export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
 export DKHUB_AI_ENABLED=1
 export TYPESAFE_API_KEY='DEIN-TYPESAFE-API-SCHLUESSEL'
-export OPENAI_API_KEY='DEIN-OPENAI-API-SCHLUESSEL'
+# Optional für freie Antworten und Empfehlungen:
+# export OPENAI_API_KEY='DEIN-OPENAI-API-SCHLUESSEL'
 ./start.sh
 ```
 
 Unter PowerShell dieselben Variablen mit `$env:DKHUB_AI_ENABLED = '1'` und entsprechend `$env:TYPESAFE_API_KEY`, `$env:OPENAI_API_KEY` und `$env:DKHUB_ADMIN_PASSWORD` setzen, dann das lokale Startskript ausführen. Schlüssel nicht ins Repository schreiben. Optional können `DKHUB_JEV_MODEL` und `DKHUB_OPENAI_MODEL` die Standardmodelle `jev-latest` und `gpt-6-luna` überschreiben; dein API-Zugang muss das gewählte Modell unterstützen.
 
 Im Chat **KI-Chat** wählen und das Admin-Passwort eingeben. Es bleibt im Arbeitsspeicher und wird beim Schließen des Chats oder beim Moduswechsel verworfen; über HTTP wird es im Netzwerk unverschlüsselt übertragen. Die Nachricht wird an TypeSafe gesendet; wenn OpenAI benötigt wird, erhält es die Nachricht, bis zu sechs vorherige KI-Chatbeiträge sowie IDs, Namen, Kategorien und Beschreibungen der ersten 100 Apps. Lokale Chatbeiträge werden nicht mitgesendet. Vertrauliche Informationen gehören nicht in diese Inhalte. OpenAI-Anfragen werden mit `store: false` gestellt. Der lokale Chat funktioniert weiterhin ohne API-Schlüssel. Spracheingabe ist noch nicht implementiert.
+
+Der Integrationstest für die Chatsteuerung startet FastAPI mit Testdaten und führt die Aktionen in Chromium aus (nur die TypeSafe-Antwort ist simuliert). Mit installierten Backend-Abhängigkeiten und Playwright Chromium im Ordner `frontend`: `npm run build`, dann `npx playwright test -c playwright.control.config.js`. Echte Anbieter-Schlüssel sind nicht nötig.
 
 ## Design für den Hub
 
@@ -70,7 +87,7 @@ Die Schlüssel liegen standardmäßig in `backend/.local/settings.json`, mit Dat
 
 Beim Hinzufügen oder Bearbeiten einer Anwendung können Admins **Mit KI beschreiben** wählen. Dazu zuerst Name, absolute HTTP(S)-URL und Admin-Passwort eingeben; KI und OpenAI-Schlüssel müssen aktiviert sein. DKHub lädt die einzelne Seite serverseitig und sendet den lesbaren HTML-Text an OpenAI. API-Kosten können anfallen. Der Vorschlag für Kurzbeschreibung und ausführliche Suchbeschreibung kann vor dem Speichern bearbeitet werden. Die ausführliche Beschreibung wird im App-Katalog gespeichert, ist für alle Hub-Nutzer lesbar und wird beim KI-Chat an OpenAI übermittelt. Keine vertraulichen Inhalte analysieren oder speichern.
 
-Die Analyse folgt keinen Weiterleitungen, führt kein JavaScript aus und meldet sich nicht an. Sie erkennt daher bei vielen React-Apps nur eine leere Hülle oder eine Anmeldeseite. In diesem Fall Beschreibung manuell ergänzen. Abfragen mit Query-Parametern, Zugangsdaten und Link-Local-Adressen sind nicht zugelassen. Der KI-Chat erhält die Beschreibung als Katalogkontext; Jev klassifiziert weiterhin zunächst die Anfrage, während das Sprachmodell passende Apps auswählt. Das garantiert weder korrekte Beschreibungen noch eine bestimmte Antwortgeschwindigkeit. Ein Live-Test mit Anbieter-Zugang ist erforderlich.
+Die Analyse folgt keinen Weiterleitungen, führt kein JavaScript aus und meldet sich nicht an. Sie erkennt daher bei vielen React-Apps nur eine leere Hülle oder eine Anmeldeseite. In diesem Fall Beschreibung manuell ergänzen. Abfragen mit Query-Parametern, Zugangsdaten und Link-Local-Adressen sind nicht zugelassen. Die Suche nutzt diese Beschreibung im Browser. Nur für freie Antworten oder Empfehlungen mit OpenAI wird sie zusätzlich als Katalogkontext an OpenAI gesendet. Das garantiert weder korrekte Beschreibungen noch eine bestimmte Antwortgeschwindigkeit. Ein Live-Test mit Anbieter-Zugang ist erforderlich.
 
 ## Kategorien und Suche
 

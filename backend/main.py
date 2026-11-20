@@ -377,7 +377,7 @@ def analyze(payload: AnalyzeRequest, request: Request, admin_password: str = Hea
 @app.post("/api/chat/ai")
 def chat_ai(payload: ChatRequest, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
     authorize(request, admin_password)
-    return respond(payload, list_apps())
+    return respond(payload, list_apps)
 
 
 class HubStaticFiles(StaticFiles):

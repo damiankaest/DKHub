@@ -105,13 +105,13 @@ function App() {
     if(app.route)navigate('/'+app.route);
     if(tv && !fromAssistant)requestAnimationFrame(()=>document.querySelector('.back-to-library')?.focus());
   }
-  function closeApp(id) {
+  function closeApp(id,restoreFocus=true) {
     const next = openIds.filter(x=>x!==id);
     const focus = id===focusId?next.at(-1):focusId;
     setOpenIds(next);setFocusId(focus||null);
     const app = apps.find(a=>a.id===focus);
     navigate(app?.route?'/'+app.route:'/',true);
-    if(!focus)focusTile(id);
+    if(!focus && restoreFocus)focusTile(id);
   }
   function manage(name,app=null,keepAssistant=false) {
     setPanel({name,app});setChoosing(false);if(!keepAssistant)setChat(false);
@@ -158,7 +158,9 @@ function App() {
       target?.focus({preventScroll:true});
     });
   }
-  const tools=useHubTools({apps,favorites,status,panel:section,
+  const activeId=viewer?selected.id:null;
+  const tools=useHubTools({apps,favorites,recent,status,panel:section,activeId,
+    close:id=>flushSync(()=>closeApp(id,false)),
     open:app=>flushSync(()=>openApp(app,true)),
     home:()=>flushSync(()=>{home(false);resetFilter();}),
     add:()=>flushSync(()=>manage('add',null,true)),
@@ -198,7 +200,7 @@ function App() {
         {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={resetFilter}/>}
       </div>
     </main>
-    <HubChat visible={chat} onClose={closeChat} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
+    <HubChat activeId={activeId} visible={chat} onClose={closeChat} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
   </div>;
 }
 
