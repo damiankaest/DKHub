@@ -1,4 +1,4 @@
-"""Optional Jev classification and OpenAI response generation; no tool execution."""
+"""Jev selects an intent. The browser resolves and runs only DKHub tools."""
 
 import json
 from threading import BoundedSemaphore
@@ -11,6 +11,14 @@ from typing import Literal
 from settings import config
 
 AI_LOCK = BoundedSemaphore(1)
+
+# These intents need the live browser state (e.g. favorites), not another model call.
+BROWSER_INTENTS = {
+    'favorites': ('dkhub_list_favorites', 'Hier sind deine Favoriten.'),
+    'catalog': ('dkhub_search_apps', 'Hier ist deine App-Bibliothek.'),
+    'library': ('dkhub_show_library', 'Zur App-Bibliothek.'),
+    'prepare_add': ('dkhub_prepare_add_app', 'Zum Formular für eine neue App.'),
+}
 
 
 class ChatTurn(BaseModel):
@@ -53,16 +61,23 @@ def respond(payload: ChatRequest, apps: list) -> dict:
             'state': {'message': payload.message},
             'questions': {'intent': {'type': 'choice', 'instructions': 'Classify the user request.',
                 'criteria': {'open': 'The user wants to open or navigate to an existing app.',
-                             'search': 'The user wants to find, list or compare apps.',
-                             'conversation': 'Anything else, including requests to install, edit or delete.'}}},
+                             'search': 'Find, recommend or compare apps matching a topic or activity.',
+                             'favorites': 'Show my bookmarked or favorite apps in this browser.',
+                             'catalog': 'Explicitly list all registered apps.',
+                             'library': 'Explicitly navigate back to the DKHub home page or app library.',
+                             'prepare_add': 'Explicitly open the form to add a website to the hub.',
+                             'conversation': 'Anything else, including questions about how to do something, or requests to install, edit or delete.'}}},
         })
         try:
             answer = jev['answers']['intent']
             intent = answer['choice']
-            if answer['type'] != 'choice' or intent not in {'open', 'search', 'conversation'}:
+            if answer['type'] != 'choice' or intent not in {'open', 'search', 'conversation', *BROWSER_INTENTS}:
                 raise ValueError('invalid intent')
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(502, 'Jev hat eine ungültige Entscheidung geliefert.') from exc
+        if intent in BROWSER_INTENTS:
+            tool, reply = BROWSER_INTENTS[intent]
+            return {'reply': reply, 'app_ids': [], 'intent': intent, 'tool': tool}
         # Do not explicitly include URLs, credentials or server settings in the catalog sent to the model.
         catalog = [{'id': item.id, 'name': item.name, 'description': item.description,
                     'category': item.category, **({'manifest': item.manifest} if getattr(item, 'manifest', '') else {})} for item in apps[:100]]
@@ -93,7 +108,11 @@ def respond(payload: ChatRequest, apps: list) -> dict:
                 raise ValueError('invalid answer')
             valid_ids = {item['id'] for item in catalog}
             valid = list(dict.fromkeys(item for item in ids if isinstance(item, str) and item in valid_ids))[:5]
-            return {'reply': reply, 'app_ids': valid, 'intent': intent}
+            # Filtering bad or duplicate IDs must never convert an ambiguous choice into an auto-open.
+            tool = 'none'
+            if valid:
+                tool = 'dkhub_open_app' if intent == 'open' and len(ids) == 1 else 'dkhub_search_apps'
+            return {'reply': reply, 'app_ids': valid, 'intent': intent, 'tool': tool}
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(502, 'Das Sprachmodell hat keine gültige Antwort geliefert.') from exc
     finally:
