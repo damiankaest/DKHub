@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { useHubTools } from './assistant/useHubTools';
 import { getApps } from './api';
 import { AppCard } from './AppCard';
 import { CategoryRow, handleTvNavigation } from './CategoryRow';
@@ -93,14 +95,15 @@ function App() {
     setPanel(null);setOpenIds([]);setFocusId(null);setChoosing(false);navigate('/');
     if (restore && (selected || tv)) focusTile(lastLaunch.current||focusId);
   }
-  function openApp(app) {
-    if (app.mode!=='embed') {setRecent(ids=>rememberRecent(ids,app.id));return;}
-    const next = choosing?[...new Set([...openIds,app.id])]:[app.id];
+  function openApp(app,fromAssistant=false) {
+    if (app.mode!=='embed' && !fromAssistant) {setRecent(ids=>rememberRecent(ids,app.id));return;}
+    const next = choosing && !fromAssistant?[...new Set([...openIds,app.id])]:[app.id];
     if(next.length>4)return;
     lastLaunch.current=app.id;
-    setRecent(ids=>rememberRecent(ids,app.id));setPanel(null);setChoosing(false);setOpenIds(next);setFocusId(app.id);
+    if (app.mode==='embed') setRecent(ids=>rememberRecent(ids,app.id));
+    setPanel(null);setChoosing(false);setOpenIds(next);setFocusId(app.id);
     if(app.route)navigate('/'+app.route);
-    if(tv)requestAnimationFrame(()=>document.querySelector('.back-to-library')?.focus());
+    if(tv && !fromAssistant)requestAnimationFrame(()=>document.querySelector('.back-to-library')?.focus());
   }
   function closeApp(id) {
     const next = openIds.filter(x=>x!==id);
@@ -110,8 +113,8 @@ function App() {
     navigate(app?.route?'/'+app.route:'/',true);
     if(!focus)focusTile(id);
   }
-  function manage(name,app=null) {
-    setPanel({name,app});setChoosing(false);setChat(false);
+  function manage(name,app=null,keepAssistant=false) {
+    setPanel({name,app});setChoosing(false);if(!keepAssistant)setChat(false);
     if(name!=='edit' && name!=='remove') {setOpenIds([]);setFocusId(null);navigate('/');}
     window.scrollTo(0,0);
   }
@@ -141,17 +144,34 @@ function App() {
     }
   }
   function favorite(id) {setFavorites(ids=>toggleFavorite(ids,id));}
-  function openChat() {lastChatTrigger.current=document.activeElement;setChat(true);}
-  function closeChat() {setChat(false);lastChatTrigger.current?.focus();}
+  function openChat() {
+    if(chat) {closeChat();return;}
+    lastChatTrigger.current=document.activeElement;setChat(true);
+  }
+  function closeChat(restore=true) {
+    setChat(false);
+    requestAnimationFrame(()=>{
+      const trigger=lastChatTrigger.current;
+      const target=restore ? (trigger?.isConnected && trigger.getClientRects().length ? trigger :
+        [...document.querySelectorAll('[data-assistant-toggle]')].find(el=>el.getClientRects().length)) :
+        (document.querySelector('.back-to-library') || document.getElementById('content'));
+      target?.focus({preventScroll:true});
+    });
+  }
+  const tools=useHubTools({apps,favorites,status,panel:section,
+    open:app=>flushSync(()=>openApp(app,true)),
+    home:()=>flushSync(()=>{home(false);resetFilter();}),
+    add:()=>flushSync(()=>manage('add',null,true)),
+  });
   const viewerActions = selected && <>
     <button className="button quiet back-to-library" onClick={()=>home()}><Icon name="back" size={17}/>Übersicht</button>
     <strong className="viewer-title">{selected.name}</strong>
     <button className="button secondary compact-button" onClick={()=>{setChoosing(true);resetFilter();if(tv)focusTile();}} disabled={openIds.length>=4} aria-label={'+ Fenster ('+openIds.length+'/4)'}><Icon name="plus" size={15}/>Fenster <small>{openIds.length}/4</small></button>
     <button className="icon-button" aria-pressed={favorites.includes(focusId)} aria-label={favorites.includes(focusId)?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen'} onClick={()=>favorite(focusId)}><Icon name="star" size={17} filled={favorites.includes(focusId)}/></button>
   </>;
-  return <div className={'shell'+(tv?' tv-mode':'')+(viewer?' viewer':'')}>
+  return <div className={'shell'+(chat?' with-assistant':'')+(tv?' tv-mode':'')+(viewer?' viewer':'')}>
     <a className="skip-link" href="#content">Zum Inhalt</a>
-    <HubNav apps={apps} favorites={favorites} recent={recent} selected={selected} panel={section} onPanel={manage} onHome={()=>home()} tvMode={tv} onTv={toggleTV} onOpen={openApp} onChat={openChat} theme={appearance.visible} inLibrary={inLibrary}/>
+    <HubNav apps={apps} favorites={favorites} recent={recent} selected={selected} panel={section} onPanel={manage} onHome={()=>home()} tvMode={tv} onTv={toggleTV} onOpen={openApp} onChat={openChat} chatOpen={chat} theme={appearance.visible} inLibrary={inLibrary}/>
     <main id="content" tabIndex={-1} className={viewer?'main viewer-main':'main'}>
       {section==='admin' && <AdminSettings onClose={()=>setPanel(null)} appearance={appearance}/>}
       {section==='sort' && <ReorderApps apps={apps} onCancel={()=>setPanel(null)} onSaved={ordered=>{setApps(ordered);setPanel(null);resetFilter();}}/>}
@@ -178,7 +198,7 @@ function App() {
         {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={resetFilter}/>}
       </div>
     </main>
-    <HubChat visible={chat} onClose={closeChat} apps={apps} status={status} favorites={favorites} onHome={()=>home()} onOpen={openApp}/>
+    <HubChat visible={chat} onClose={closeChat} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
   </div>;
 }
 

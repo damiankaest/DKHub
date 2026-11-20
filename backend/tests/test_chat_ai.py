@@ -30,7 +30,7 @@ def test_ai_uses_jev_and_only_returns_known_suggestions(monkeypatch):
     monkeypatch.setattr(chat_ai, 'post_json', provider)
     app = SimpleNamespace(id='weather', name='Wetter', description='', category='Info', url='http://192.168.1.10')
     result = chat_ai.respond(chat_ai.ChatRequest(message='Wie wird das Wetter?'), [app])
-    assert result == {'reply': 'Hier ist Wetter.', 'app_ids': ['weather'], 'intent': 'search'}
+    assert result == {'reply': 'Hier ist Wetter.', 'app_ids': ['weather'], 'intent': 'search', 'tool': 'dkhub_search_apps'}
     assert calls[0][1] == 'jev-secret' and calls[1][1] == 'llm-secret'
 
 
@@ -56,3 +56,37 @@ def test_ai_endpoint_requires_admin_and_same_origin(monkeypatch):
     assert client.post('/api/chat/ai', json=body, headers={**headers, 'X-DKHub-Admin': 'wrong'}).status_code == 403
     assert client.post('/api/chat/ai', json=body, headers={**headers, 'Origin': 'http://other'}).status_code == 403
     assert client.post('/api/chat/ai', json=body, headers=headers).json()['reply'] == 'Hallo'
+
+
+@pytest.mark.parametrize(('intent', 'tool'), [
+    ('favorites', 'dkhub_list_favorites'), ('catalog', 'dkhub_search_apps'),
+    ('library', 'dkhub_show_library'), ('prepare_add', 'dkhub_prepare_add_app'),
+])
+def test_live_browser_intents_do_not_send_catalog_or_call_llm(monkeypatch, intent, tool):
+    configured(monkeypatch)
+    def provider(url, key, body):
+        assert url == 'https://api.typesafe.ai/v1/systemone'
+        assert body['state'] == {'message': 'Test'}
+        return {'answers': {'intent': {'type': 'choice', 'choice': intent}}}
+    monkeypatch.setattr(chat_ai, 'post_json', provider)
+    answer = chat_ai.respond(chat_ai.ChatRequest(message='Test'), [])
+    assert answer['tool'] == tool and answer['app_ids'] == []
+
+
+@pytest.mark.parametrize(('intent', 'ids', 'tool'), [
+    ('open', ['a'], 'dkhub_open_app'),
+    ('open', ['missing', 'a'], 'dkhub_search_apps'),
+    ('open', ['a', 'a'], 'dkhub_search_apps'),
+    ('open', ['missing'], 'none'),
+    ('search', ['a'], 'dkhub_search_apps'),
+])
+def test_ai_only_proposes_open_for_one_unambiguous_registered_id(monkeypatch, intent, ids, tool):
+    configured(monkeypatch)
+    def provider(url, key, body):
+        if 'typesafe' in url:
+            return {'answers': {'intent': {'type': 'choice', 'choice': intent}}}
+        return {'status': 'completed', 'output': [{'type': 'message', 'content': [
+            {'type': 'output_text', 'text': json.dumps({'reply': 'Gefunden.', 'app_ids': ids})}]}]}
+    monkeypatch.setattr(chat_ai, 'post_json', provider)
+    app = SimpleNamespace(id='a', name='Wetter', description='', category='Info')
+    assert chat_ai.respond(chat_ai.ChatRequest(message='Test'), [app])['tool'] == tool

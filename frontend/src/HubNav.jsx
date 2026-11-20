@@ -3,7 +3,7 @@ import { BrandMark, Icon } from './Icon';
 import { QuickLinks } from './QuickLinks';
 import { ThemeArt } from './themes/ThemeArt';
 
-export function HubNav({ apps, favorites, recent, selected, panel, tvMode, onTv, onOpen, onPanel, onHome, onChat, theme, inLibrary }) {
+export function HubNav({ apps, favorites, recent, selected, panel, tvMode, onTv, onOpen, onPanel, onHome, onChat, chatOpen, theme, inLibrary }) {
   const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState(false);
   const opener = useRef(null);
@@ -22,7 +22,7 @@ export function HubNav({ apps, favorites, recent, selected, panel, tvMode, onTv,
     <div className="rail-section"><div className="nav-heading">Arbeitsbereich</div>
       {link('Bibliothek','library',onHome,!selected && !panel)}
       {link(tvMode?'TV-Modus beenden':'TV-Modus','tv',onTv,false)}
-      <button type="button" className="nav-item" aria-label="DKHub Chat öffnen" title="DKHub Chat öffnen" onClick={()=>launch(onChat)}><Icon name="chat" size={19}/><span>Assistent</span></button></div>
+      <button type="button" className={'nav-item' + (chatOpen?' active':'')} data-assistant-toggle aria-expanded={chatOpen} aria-controls={chatOpen?'dk-assistant':undefined} aria-label={chatOpen?'DKHub Chat ausblenden':'DKHub Chat öffnen'} title="DK-Assistent"  onClick={()=>launch(onChat)}><Icon name="chat" size={19}/><span>Assistent</span></button></div>
     <div className="nav-quick">{quick}</div>
     <div className="rail-section"><div className="nav-heading">Verwaltung</div>
       {link('Dienste','server',()=>onPanel('director'),panel==='director')}
@@ -38,7 +38,7 @@ export function HubNav({ apps, favorites, recent, selected, panel, tvMode, onTv,
         <button className="nav-item collapse" onClick={()=>setCollapsed(v=>!v)} aria-label={collapsed?'Seitenleiste ausklappen':'Seitenleiste einklappen'} aria-expanded={!collapsed}><Icon name="panel" size={17}/><span>Einklappen</span></button></div>
     </aside>
     <header className="mobile-bar"><button className="brand" onClick={onHome} aria-label="DKHub Startseite"><BrandMark/><span>DK<b>Hub</b></span></button>
-      <div><button type="button" className="icon-button" aria-label="DKHub Chat öffnen" onClick={onChat}><Icon name="chat"/></button><button type="button" className="icon-button" ref={opener} aria-expanded={menu} aria-label="Navigation öffnen" onClick={()=>setMenu(true)}><Icon name="menu"/></button></div></header>
+      <div><button type="button" className="icon-button" data-assistant-toggle aria-expanded={chatOpen} aria-controls={chatOpen?'dk-assistant':undefined} aria-label={chatOpen?'DKHub Chat ausblenden':'DKHub Chat öffnen'} onClick={onChat}><Icon name="chat"/></button><button type="button" className="icon-button" ref={opener} aria-expanded={menu} aria-label="Navigation öffnen" onClick={()=>setMenu(true)}><Icon name="menu"/></button></div></header>
     {inLibrary && (favorites.length>0 || recent.length>0) && <nav className="mobile-quick" aria-label="Schnellzugriff">{quick}</nav>}
     <dialog ref={drawer} className="mobile-menu" aria-label="Navigation" onClose={()=>setMenu(false)} onClick={e=>{if(e.target===e.currentTarget) drawer.current.close();}}>
       <div><div className="drawer-head"><strong>Navigation</strong><button autoFocus className="icon-button" onClick={()=>drawer.current.close()} aria-label="Navigation schließen"><Icon name="close"/></button></div><nav aria-label="Mobile Hauptnavigation">{nav}</nav></div>
