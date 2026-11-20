@@ -1,7 +1,6 @@
 """Optional Jev classification and OpenAI response generation; no tool execution."""
 
 import json
-import os
 from threading import BoundedSemaphore
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -9,6 +8,7 @@ from urllib.request import Request, urlopen
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from typing import Literal
+from settings import config
 
 AI_LOCK = BoundedSemaphore(1)
 
@@ -40,15 +40,16 @@ def post_json(url: str, key: str, body: dict) -> dict:
 
 
 def respond(payload: ChatRequest, apps: list) -> dict:
-    jev_key = os.environ.get('TYPESAFE_API_KEY', '')
-    llm_key = os.environ.get('OPENAI_API_KEY', '')
-    if os.environ.get('DKHUB_AI_ENABLED') != '1' or not jev_key or not llm_key:
+    settings = config()
+    jev_key = settings['typesafe_key']
+    llm_key = settings['openai_key']
+    if not settings['enabled'] or not jev_key or not llm_key:
         raise HTTPException(503, 'KI-Chat ist noch nicht eingerichtet.')
     if not AI_LOCK.acquire(blocking=False):
         raise HTTPException(429, 'Eine KI-Anfrage läuft bereits. Bitte kurz warten.')
     try:
         jev = post_json('https://api.typesafe.ai/v1/systemone', jev_key, {
-            'model': os.environ.get('DKHUB_JEV_MODEL', 'jev-latest'),
+            'model': settings['jev_model'],
             'state': {'message': payload.message},
             'questions': {'intent': {'type': 'choice', 'instructions': 'Classify the user request.',
                 'criteria': {'open': 'The user wants to open or navigate to an existing app.',
@@ -62,13 +63,13 @@ def respond(payload: ChatRequest, apps: list) -> dict:
                 raise ValueError('invalid intent')
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(502, 'Jev hat eine ungültige Entscheidung geliefert.') from exc
-        # Do not share URLs, credentials or server settings with either provider.
+        # Do not explicitly include URLs, credentials or server settings in the catalog sent to the model.
         catalog = [{'id': item.id, 'name': item.name, 'description': item.description,
-                    'category': item.category} for item in apps[:100]]
+                    'category': item.category, **({'manifest': item.manifest} if getattr(item, 'manifest', '') else {})} for item in apps[:100]]
         context = {'message': payload.message, 'history': [turn.model_dump() for turn in payload.history],
                    'intent_hint': intent, 'apps': catalog}
         llm = post_json('https://api.openai.com/v1/responses', llm_key, {
-            'model': os.environ.get('DKHUB_OPENAI_MODEL', 'gpt-6-luna'),
+            'model': settings['openai_model'],
             'store': False,
             'max_output_tokens': 600,
             'instructions': ('Du bist der freundliche DKHub-Assistent. Antworte knapp und natürlich auf Deutsch. '

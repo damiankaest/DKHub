@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from chat_ai import ChatRequest, respond
+import settings
+from page_analysis import analyze_page
 
 ROOT = Path(__file__).resolve().parent
 CATALOG = Path(os.environ.get("DKHUB_APPS_FILE", ROOT / ".local" / "apps.json"))
@@ -35,6 +37,7 @@ class AppEntry(BaseModel):
     route: str | None = Field(default=None, min_length=1, max_length=80, pattern=ROUTE_PATTERN)
     name: str = Field(min_length=1, max_length=100)
     description: str = Field(max_length=300)
+    manifest: str = Field(default="", max_length=3000)
     category: str = Field(min_length=1, max_length=80)
     icon: Literal["spark", "globe"]
     color: Literal["sage", "sand"]
@@ -144,6 +147,7 @@ class NewApp(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     description: str = Field(default="", max_length=300)
     mode: Literal["embed", "external"] = "external"
+    manifest: str | None = Field(default=None, max_length=3000)
     route: str | None = Field(default=None, max_length=80, pattern=ROUTE_PATTERN)
 
 
@@ -155,7 +159,7 @@ def add_app(entry: NewApp, request: Request, admin_password: str = Header(defaul
         raise HTTPException(422, "Name is required")
     try:
         app_entry = AppEntry(id=uuid4().hex, route=entry.route, name=name,
-                             description=entry.description.strip(), category="Meine Apps",
+                             description=entry.description.strip(), manifest=(entry.manifest or "").strip(), category="Meine Apps",
                              icon="globe", color="sage", url=entry.url.strip(),
                              mode=entry.mode, label="Webseite")
     except ValueError as exc:
@@ -189,7 +193,7 @@ def update_app(app_id: str, entry: NewApp, request: Request, admin_password: str
             raise HTTPException(409, "Route already in use")
         try:
             updated = AppEntry.model_validate({**old.model_dump(), "name": name,
-                "url": entry.url.strip(), "description": entry.description.strip(),
+                "url": entry.url.strip(), "description": entry.description.strip(), "manifest": entry.manifest.strip() if entry.manifest is not None else old.manifest,
                 "mode": entry.mode, "route": route})
         except ValueError as exc:
             raise HTTPException(422, "Invalid app details") from exc
@@ -286,6 +290,37 @@ def director_action(service_id: str, action: str, request: Request, admin_passwo
     if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id) or action not in {"start", "stop"}:
         raise HTTPException(404, "Service not found")
     return director_request(f"/services/{service_id}/{action}", "POST", {})
+
+
+class SettingsUpdate(BaseModel):
+    enabled: bool | None = None
+    typesafe_key: str | None = Field(default=None, max_length=500)
+    openai_key: str | None = Field(default=None, max_length=500)
+    jev_model: str | None = Field(default=None, min_length=1, max_length=100)
+    openai_model: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+@app.post("/api/admin/settings/read")
+def admin_settings(request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return settings.status()
+
+
+@app.post("/api/admin/settings")
+def update_settings(payload: SettingsUpdate, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return settings.save_settings(payload.model_dump(exclude_unset=True))
+
+
+class AnalyzeRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+    name: str = Field(default="", max_length=100)
+
+
+@app.post("/api/admin/analyze")
+def analyze(payload: AnalyzeRequest, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return analyze_page(payload.url, payload.name)
 
 
 @app.post("/api/chat/ai")
