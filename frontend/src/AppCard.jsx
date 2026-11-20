@@ -19,9 +19,10 @@ export function AppCard({ app, onOpen, favorite, onFavorite, active, hidden, onC
     {active && <div className="window-bar"><strong>{app.name}</strong><button type="button" className="url-toggle" aria-expanded={showUrl} onClick={() => { setShowUrl(!showUrl); setCopyMessage(''); }}>Adresse</button><a href={app.url} target="_blank" rel="noopener noreferrer">Neuer Tab ↗</a><button type="button" aria-label={`${app.name} schließen`} onClick={onClose}>×</button></div>}
     {active && showUrl && <div className="url-bar"><label>Konfigurierte Adresse<input ref={input} readOnly value={app.url} aria-label={`${app.name} Adresse`} /></label><button type="button" onClick={copyUrl}>Kopieren</button><button type="button" onClick={onEdit}>Bearbeiten</button>{copyMessage && <span role="status">{copyMessage}</span>}</div>}
     <div className="card-preview">
+      {app.image && !active && <img className="card-image" src={app.image} alt="" loading="lazy" />}
       {app.mode === 'embed'
-        ? <><iframe title={`Vorschau ${app.name}`} src={app.url} loading="lazy" referrerPolicy="no-referrer" tabIndex={active ? 0 : -1} /><button type="button" className="preview-open" aria-label={`${app.name} öffnen`} onClick={onOpen}/></>
-        : <div className={`preview-placeholder ${app.color}`}><Icon name={app.icon} size={38}/><span>Externer Link</span></div>}
+        ? <>{(!app.image || active) && <iframe title={`Vorschau ${app.name}`} src={app.url} loading="lazy" referrerPolicy="no-referrer" tabIndex={active ? 0 : -1} />}<button type="button" className="preview-open" data-tv-card aria-label={`${app.name} öffnen`} onClick={onOpen}/></>
+        : <>{!app.image && <div className={`preview-placeholder ${app.color}`}><Icon name={app.icon} size={38}/><span>Externer Link</span></div>}<a className="preview-open" data-tv-card aria-label={`${app.name} öffnen (neuer Tab)`} href={app.url} target="_blank" rel="noopener noreferrer" onClick={onOpen}/></>}
     </div>
     <div className="card-details"><div className="card-top"><h3>{app.name}</h3><button className="favorite-button card-favorite" type="button" onClick={onFavorite} aria-pressed={favorite} aria-label={favorite ? `${app.name} aus Favoriten entfernen` : `${app.name} zu Favoriten hinzufügen`}>{favorite ? '★' : '☆'}</button></div>
       <p>{app.description}</p><div className="card-management"><button className="remove-link" onClick={onEdit}>Bearbeiten</button><button className="remove-link" onClick={onRemove}>Entfernen</button></div><div className="card-bottom"><span>{app.category}</span>{app.mode === 'embed'

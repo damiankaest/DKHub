@@ -1,6 +1,7 @@
 """Small app catalog and static frontend server."""
 
 import json
+import hashlib
 import os
 import re
 import secrets
@@ -16,6 +17,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -26,6 +28,8 @@ from page_analysis import analyze_page
 ROOT = Path(__file__).resolve().parent
 CATALOG = Path(os.environ.get("DKHUB_APPS_FILE", ROOT / ".local" / "apps.json"))
 SEED = ROOT / "apps.json"
+IMAGE_DIR = Path(os.environ.get("DKHUB_IMAGE_DIR", ROOT / ".local" / "images"))
+IMAGE_PATTERN = r"^/api/images/[a-f0-9]{64}\.(png|jpg|webp)$"
 CATALOG_LOCK = Lock()
 FRONTEND = ROOT.parent / "frontend" / "dist"
 RESERVED = {"api", "assets", "docs", "redoc", "openapi", "demo"}
@@ -37,6 +41,7 @@ class AppEntry(BaseModel):
     route: str | None = Field(default=None, min_length=1, max_length=80, pattern=ROUTE_PATTERN)
     name: str = Field(min_length=1, max_length=100)
     description: str = Field(max_length=300)
+    image: str = Field(default="", pattern=r"^$|" + IMAGE_PATTERN)
     manifest: str = Field(default="", max_length=3000)
     category: str = Field(min_length=1, max_length=80)
     icon: Literal["spark", "globe"]
@@ -125,6 +130,50 @@ def list_apps() -> list[AppEntry]:
         raise HTTPException(status_code=500, detail="Unable to read app catalog") from exc
 
 
+@app.post("/api/admin/images", status_code=201)
+async def upload_image(request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    content = bytearray()
+    async for chunk in request.stream():
+        content.extend(chunk)
+        if len(content) > 2 * 1024 * 1024:
+            raise HTTPException(413, "Image exceeds 2 MB")
+    raw = bytes(content)
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        suffix = "png"
+    elif raw.startswith(b"\xff\xd8\xff"):
+        suffix = "jpg"
+    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        suffix = "webp"
+    else:
+        raise HTTPException(415, "Use PNG, JPEG or WebP")
+    name = hashlib.sha256(raw).hexdigest() + "." + suffix
+    IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    path = IMAGE_DIR / name
+    if not path.exists():
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=IMAGE_DIR, delete=False) as output:
+                tmp = Path(output.name)
+                output.write(raw)
+            os.replace(tmp, path)
+        finally:
+            if tmp is not None:
+                tmp.unlink(missing_ok=True)
+    return {"image": "/api/images/" + name}
+
+
+@app.get("/api/images/{filename}")
+def get_image(filename: str):
+    if not re.fullmatch(r"[a-f0-9]{64}\.(png|jpg|webp)", filename):
+        raise HTTPException(404, "Image not found")
+    path = IMAGE_DIR / filename
+    if not path.is_file():
+        raise HTTPException(404, "Image not found")
+    content_type = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp"}[filename.rsplit(".", 1)[1]]
+    return FileResponse(path, media_type=content_type, headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=31536000, immutable"})
+
+
 class ReorderApps(BaseModel):
     ids: list[str] = Field(max_length=1000)
 
@@ -147,6 +196,7 @@ class NewApp(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     description: str = Field(default="", max_length=300)
     mode: Literal["embed", "external"] = "external"
+    image: str | None = Field(default=None, pattern=r"^$|" + IMAGE_PATTERN)
     manifest: str | None = Field(default=None, max_length=3000)
     category: str | None = Field(default=None, max_length=80)
     route: str | None = Field(default=None, max_length=80, pattern=ROUTE_PATTERN)
@@ -170,7 +220,7 @@ def add_app(entry: NewApp, request: Request, admin_password: str = Header(defaul
     try:
         app_entry = AppEntry(id=uuid4().hex, route=entry.route, name=name,
                              description=entry.description.strip(), manifest=(entry.manifest or "").strip(), category=entry.category or "Meine Apps",
-                             icon="globe", color="sage", url=entry.url.strip(),
+                             icon="globe", color="sage", image=entry.image or "", url=entry.url.strip(),
                              mode=entry.mode, label="Webseite")
     except ValueError as exc:
         raise HTTPException(422, "Invalid app details") from exc
@@ -204,7 +254,7 @@ def update_app(app_id: str, entry: NewApp, request: Request, admin_password: str
         try:
             updated = AppEntry.model_validate({**old.model_dump(), "name": name,
                 "url": entry.url.strip(), "description": entry.description.strip(), "manifest": entry.manifest.strip() if entry.manifest is not None else old.manifest,
-                "mode": entry.mode, "category": entry.category if entry.category is not None else old.category, "route": route})
+                "image": entry.image if entry.image is not None else old.image, "mode": entry.mode, "category": entry.category if entry.category is not None else old.category, "route": route})
         except ValueError as exc:
             raise HTTPException(422, "Invalid app details") from exc
         save_catalog([updated if item.id == app_id else item for item in entries])

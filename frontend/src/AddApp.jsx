@@ -6,6 +6,8 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState(existing?.url || '');
   const [preview, setPreview] = useState('');
+  const [image, setImage] = useState(existing?.image || '');
+  const [file, setFile] = useState(null);
   const [description, setDescription] = useState(existing?.description || '');
   const [manifest, setManifest] = useState(existing?.manifest || '');
   const [analysisMessage, setAnalysisMessage] = useState('');
@@ -36,7 +38,14 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
     setBusy(true);
     setError('');
     try {
-      const details = { name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), manifest, category: fields.get('category').trim() || 'Meine Apps', mode: fields.get('mode'), route: fields.get('route') || null };
+      let savedImage = image;
+      if (file) {
+        if (file.size > 2 * 1024 * 1024) throw new Error('Das Bild darf höchstens 2 MB groß sein.');
+        const response = await fetch('/api/admin/images', {method:'POST', headers:{'X-DKHub-Admin':fields.get('password'), 'Content-Type':file.type || 'application/octet-stream'}, body:file});
+        if (!response.ok) throw new Error(response.status === 403 ? 'Admin-Passwort oder Anfrage ungültig.' : 'Bild konnte nicht gespeichert werden. Bitte PNG, JPEG oder WebP bis 2 MB verwenden.');
+        savedImage = (await response.json()).image;
+      }
+      const details = { image:savedImage, name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), manifest, category: fields.get('category').trim() || 'Meine Apps', mode: fields.get('mode'), route: fields.get('route') || null };
       const app = existing ? await updateApp(existing.id, details, fields.get('password')) : await addApp(details, fields.get('password'));
       onAdded(app);
     } catch (err) {
@@ -54,6 +63,8 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
         {preview && <div className="embed-test-frame"><iframe title="Einbettungsvorschau" src={preview} referrerPolicy="no-referrer" /></div>}
       </div>
       <div className="embed-test"><p>Die Analyse lädt die Seite vom Server und sendet lesbare Inhalte an OpenAI. Kosten können entstehen. Nur Seiten analysieren, deren Inhalte du teilen möchtest.</p><button type="button" className="button secondary" onClick={analyze} disabled={busy || !url}>Mit KI beschreiben</button>{analysisMessage && <p role="status">{analysisMessage}</p>}</div>
+      <label>Kachelbild <span>(optional, PNG/JPEG/WebP bis 2 MB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
+      {image && !file && <div><img className="form-image" src={image} alt="Aktuelles Kachelbild" /><button type="button" className="button secondary" onClick={() => setImage('')}>Bild entfernen</button></div>}
       <label>Kategorie<input name="category" list="app-categories" defaultValue={existing?.category || 'Meine Apps'} maxLength="80" placeholder="z. B. Fitness" /></label>
       <datalist id="app-categories">{categories.map(category => <option key={category} value={category} />)}</datalist>
       <label>Beschreibung <span>(optional)</span><input name="description" value={description} onChange={e => setDescription(e.target.value)} maxLength="300" placeholder="Worum geht es?" /></label>
