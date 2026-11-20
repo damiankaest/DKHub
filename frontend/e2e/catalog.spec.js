@@ -170,3 +170,36 @@ test('configure AI and review an analyzed app before saving', async ({ page }) =
   await page.getByRole('button',{name:'Anwendung speichern'}).click();
   await expect.poll(() => saved?.manifest).toBe('Geprüfte Beschreibung');
 });
+
+test('filter by category, search descriptions, and edit an app category', async ({ page }) => {
+  let apps = [
+    {id:'sport', route:'sport', name:'DKCoach', description:'Training', manifest:'Gewichte und Wiederholungen', category:'Fitness', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'App'},
+    {id:'music', route:'music', name:'DKDJ', description:'Musik', category:'Medien', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'App'},
+  ];
+  await page.route('**/api/apps', route => route.fulfill({json: apps}));
+  await page.route('**/api/apps/sport', route => {
+    const data = route.request().postDataJSON();
+    expect(data.category).toBe('Zuhause');
+    apps = apps.map(app => app.id === 'sport' ? {...app, ...data} : app);
+    return route.fulfill({json: apps[0]});
+  });
+  await page.goto('/');
+  await page.getByLabel('Kategorie filtern').selectOption('Fitness');
+  await expect(page.getByRole('heading', {name:'DKCoach'})).toBeVisible();
+  await expect(page.getByRole('heading', {name:'DKDJ'})).toBeHidden();
+  await page.getByLabel('Anwendungen suchen').fill('Wiederholungen');
+  await expect(page.getByRole('heading', {name:'DKCoach'})).toBeVisible();
+  await page.getByLabel('Anwendungen suchen').fill('Musik');
+  await expect(page.getByText('Keine Anwendungen für diese Suche und Kategorie gefunden.')).toBeVisible();
+  await page.getByLabel('Anwendungen suchen').clear();
+  await page.locator('.card').filter({has:page.getByRole('heading',{name:'DKCoach'})}).getByRole('button',{name:'Bearbeiten'}).click();
+  await page.getByLabel('Kategorie',{exact:true}).fill('Zuhause');
+  await page.getByLabel('Admin-Passwort').fill('secret');
+  await page.getByRole('button',{name:'Anwendung speichern'}).click();
+  await expect(page.getByLabel('Kategorie filtern')).toHaveValue('');
+  await page.getByLabel('Kategorie filtern').selectOption('Zuhause');
+  await expect(page.getByRole('heading',{name:'DKCoach'})).toBeVisible();
+  await page.reload();
+  await page.getByLabel('Kategorie filtern').selectOption('Zuhause');
+  await expect(page.getByRole('heading',{name:'DKCoach'})).toBeVisible();
+});
