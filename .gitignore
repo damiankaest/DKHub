@@ -6,3 +6,5 @@ __pycache__/
 .DS_Store
 
 .local/
+frontend/test-results/
+frontend/playwright-report/

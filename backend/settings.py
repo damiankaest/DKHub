@@ -39,12 +39,11 @@ def status():
             'openai_configured': bool(c['openai_key']), 'jev_model': c['jev_model'], 'openai_model': c['openai_model']}
 
 
-def save_settings(update):
+def change_settings(change):
+    """Read, mutate and replace once under the same lock for all admin settings."""
     with LOCK:
         value = read_settings()
-        for key, item in update.items():
-            if item is not None:
-                value[key] = item
+        result = change(value)
         SETTINGS.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         temp = None
         try:
@@ -56,4 +55,9 @@ def save_settings(update):
         finally:
             if temp is not None:
                 temp.unlink(missing_ok=True)
+    return result
+
+
+def save_settings(update):
+    change_settings(lambda values: values.update({k: v for k, v in update.items() if v is not None}))
     return status()

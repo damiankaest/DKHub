@@ -1,27 +1,45 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Icon } from './Icon';
 
-export function CategoryRow({ name, hidden, children }) {
+export function CategoryRow({ name, hidden, visibleCount, viewing, children }) {
   const track = useRef(null);
-  const scroll = direction => track.current?.scrollBy({left:direction * track.current.clientWidth * 0.8, behavior:'smooth'});
-  return <section className="category-row" hidden={hidden} aria-label={`Kategorie ${name}`}>
-    <div className="category-heading"><h2>{name}</h2><div className="carousel-controls"><button type="button" aria-label={`${name} nach links`} onClick={() => scroll(-1)}>‹</button><button type="button" aria-label={`${name} nach rechts`} onClick={() => scroll(1)}>›</button></div></div>
-    <div className="category-track" ref={track}>{children}</div>
+  const [edges, setEdges] = useState({left:false,right:false});
+  useEffect(() => {
+    if (hidden || viewing) return;
+    const el = track.current;
+    function measure() {
+      const left = el.scrollLeft > 2, right = el.clientWidth + el.scrollLeft < el.scrollWidth - 2;
+      setEdges(old => old.left===left && old.right===right ? old : {left,right});
+    }
+    measure();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
+    el.addEventListener('scroll',measure,{passive:true});
+    return () => { observer?.disconnect(); el.removeEventListener('scroll',measure); };
+  }, [visibleCount, hidden, viewing]);
+  const scroll = dir => track.current.scrollBy({left:dir * track.current.clientWidth * .82,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  return <section className={'category-row' + (visibleCount===1?' single':'')} hidden={hidden} aria-label={'Kategorie ' + name}>
+    <div className="category-heading"><h2>{name}</h2><span className="category-count">{visibleCount}</span><span className="row-rule"/>
+      {(edges.left || edges.right) && <div className="carousel-controls"><button className="icon-button" disabled={!edges.left} aria-label={name+' nach links'} onClick={()=>scroll(-1)}><Icon name="back" size={16}/></button><button className="icon-button" disabled={!edges.right} aria-label={name+' nach rechts'} onClick={()=>scroll(1)}><Icon name="next" size={16}/></button></div>}
+    </div><div className="category-track" ref={track}>{children}</div>
   </section>;
 }
 
-export function handleTvNavigation(event) {
-  if (!event.target.matches('[data-tv-card]') || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+export function handleTvNavigation(event, onExit) {
+  if (!event.target.matches('[data-tv-card]')) return;
+  if (event.key === 'Escape') { event.preventDefault(); onExit(); return; }
+  if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
   const rows = [...event.currentTarget.querySelectorAll('.category-row:not([hidden])')];
-  const rowIndex = rows.findIndex(row => row.contains(event.target));
-  if (rowIndex < 0) return;
-  const cardsIn = row => [...row.querySelectorAll('.card:not([hidden]) [data-tv-card]')];
-  const cards = cardsIn(rows[rowIndex]);
-  const index = cards.indexOf(event.target);
-  const offset = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-  const vertical = event.key === 'ArrowDown' || event.key === 'ArrowUp';
-  const nextRow = vertical ? rows[rowIndex + offset] : rows[rowIndex];
-  if (!nextRow) return;
-  const choices = cardsIn(nextRow);
-  const next = choices[vertical ? Math.min(index, choices.length - 1) : index + offset];
-  if (next) { event.preventDefault(); next.focus(); next.scrollIntoView({block:'nearest', inline:'nearest'}); }
+  const row = rows.findIndex(el => el.contains(event.target));
+  if (row<0) return;
+  const cards = el => [...el.querySelectorAll('.card:not([hidden]) [data-tv-card]')];
+  const col = cards(rows[row]).indexOf(event.target);
+  const dy = event.key==='ArrowDown'?1:event.key==='ArrowUp'?-1:0;
+  if (row===0 && dy===-1) { event.preventDefault(); document.querySelector('.tv-exit')?.focus(); return; }
+  const next = rows[row+dy] && cards(rows[row+dy]);
+  const target = next?.[dy?Math.min(col,next.length-1):col+(event.key==='ArrowRight'?1:-1)];
+  event.preventDefault();
+  if(target) {target.focus({preventScroll:true}); target.scrollIntoView({block:'nearest', inline:'nearest'});}
 }

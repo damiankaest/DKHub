@@ -1,6 +1,6 @@
 # DKHub
 
-Ein leichter Hub für Web-Apps und Links im Heimnetz. React-Frontend und FastAPI-Backend liegen gemeinsam in diesem Repository. Das Backend stellt Kacheln über `GET /api/apps` bereit. Neue Webseiten lassen sich über ein Formular mit Admin-Passwort hinzufügen. Es gibt noch keine Nutzerverwaltung und keine Containersteuerung.
+Ein leichter Hub für Web-Apps und Links im Heimnetz. React-Frontend und FastAPI-Backend liegen gemeinsam in diesem Repository. Das Backend stellt Kacheln über `GET /api/apps` bereit. Neue Webseiten lassen sich über ein Formular mit Admin-Passwort hinzufügen. Gäste brauchen kein Konto. Für einfache Docker-Dienste lässt sich DKDirector optional zuschalten.
 
 ## Start für den Heimnetztest
 
@@ -30,7 +30,7 @@ Vite leitet `/api` an das Backend auf `127.0.0.1:8000` weiter. Der Vite-Entwickl
 
 ## DKHub Chat
 
-Über „Chat“ lassen sich registrierte Apps lokal mit einfachen Befehlen finden und öffnen, zum Beispiel `Suche Musik` oder `Öffne Wetter`. Optional beantwortet der KI-Chat natürlich formulierte Fragen: Jev ordnet die Anfrage ein, ein OpenAI-Sprachmodell formuliert die Antwort und schlägt passende registrierte Apps vor. Diese öffnest du über den jeweiligen Vorschlag. Der KI-Chat installiert und verändert keine Dienste.
+Über „Assistent“ lassen sich registrierte Apps lokal mit einfachen Befehlen finden und öffnen, zum Beispiel `Suche Musik` oder `Öffne Wetter`. Optional beantwortet der KI-Chat natürlich formulierte Fragen: Jev ordnet die Anfrage ein, ein OpenAI-Sprachmodell formuliert die Antwort und schlägt passende registrierte Apps vor. Diese öffnest du über den jeweiligen Vorschlag. Der KI-Chat installiert und verändert keine Dienste.
 
 Für den optionalen KI-Chat benötigst du separate API-Zugänge von TypeSafe AI und OpenAI sowie ein Admin-Passwort. API-Nutzung kann Kosten verursachen; ein ChatGPT-Abo enthält nicht automatisch API-Guthaben. Vor dem Start beispielsweise unter Linux/macOS setzen:
 
@@ -46,9 +46,17 @@ Unter PowerShell dieselben Variablen mit `$env:DKHUB_AI_ENABLED = '1'` und entsp
 
 Im Chat **KI-Chat** wählen und das Admin-Passwort eingeben. Es bleibt nur für die aktuelle Seite im Speicher; über HTTP wird es im Netzwerk unverschlüsselt übertragen. Die Nachricht wird an TypeSafe gesendet; Nachricht, bis zu sechs vorherige Chatbeiträge sowie IDs, Namen, Kategorien und Beschreibungen der ersten 100 Apps werden an OpenAI gesendet. Vertrauliche Informationen gehören nicht in diese Inhalte. OpenAI-Anfragen werden mit `store: false` gestellt. Der lokale Chat funktioniert weiterhin ohne API-Schlüssel. Spracheingabe und WebMCP sind noch nicht implementiert.
 
+## Design für den Hub
+
+Unter **Einstellungen → Design-Studio** stehen **Hell**, **Dunkel**, **Anime** und **Weihnachten** bereit. Die Auswahl zeigt eine Vorschau nur in deinem Tab. **Für alle aktivieren** speichert das Hausdesign auf dem Server. Andere Geräte übernehmen es beim Öffnen, Neuladen oder wenn ihr Browser-Tab wieder sichtbar wird. Ohne Konfiguration startet der Hub in Hell.
+
+**Eigenes Theme:** Über **Manuell gestalten** kannst du Name, Hell/Dunkel, zwei Farben, Kanten, Motiv und Animationen festlegen. Oder aktiviere unter **KI-Zugänge** die KI und hinterlege einen **OpenAI-API-Schlüssel**. Beschreibe dann z. B. „Eine japanische Listening-Bar bei Nacht: Petrol, Apricot und ruhige Lichtbänder“ und wähle **KI-Entwurf erstellen**. Nur dieser Wunsch wird an OpenAI übermittelt; dafür ist kein TypeSafe-Schlüssel nötig. Prüfe und ändere den Entwurf, wähle **Theme speichern** und anschließend bei Bedarf **Für alle aktivieren**. Bis zu zwölf eigene Designs bleiben zusammen mit den vier Vorlagen in der Sammlung. Unter einem neuen Namen kannst du Abwandlungen speichern.
+
+Die Motive (Raster, Ringe, Manga, Schnee und Polarlicht) sind lokal enthalten; ein Theme lädt keine externen Bilder, Schriften oder Skripte. Eingebettete Apps behalten ihr eigenes Design. Das Betriebssystem kann alle Animationen mit „Bewegung reduzieren“ abschalten. Hinweise zur [Abnahme auf Handy und TV](docs/ui-release.md).
+
 ## Admin-Zentrale und KI-Beschreibung
 
-Über **Admin** auf der Startseite mit dem serverseitig gesetzten Admin-Passwort anmelden. Unter KI können die TypeSafe- und OpenAI-Schlüssel sowie die Modelle eingerichtet werden. Leere Eingabefelder behalten bestehende Schlüssel; die Entfernen-Schaltfläche löscht sie ausdrücklich. Gespeicherte Schlüssel werden nicht an das Frontend zurückgegeben. Die Anmeldung gilt nur solange die Seite geöffnet ist; andere bestehende Verwaltungsformulare fragen weiterhin nach dem Passwort.
+Über **Einstellungen** in der Navigation mit dem serverseitig gesetzten Admin-Passwort anmelden. Unter **KI-Zugänge** können die TypeSafe- und OpenAI-Schlüssel sowie die Modelle eingerichtet werden. Leere Eingabefelder behalten bestehende Schlüssel; die Entfernen-Schaltfläche löscht sie ausdrücklich. Gespeicherte Schlüssel werden nicht an das Frontend zurückgegeben. Die Anmeldung gilt nur solange die Seite geöffnet ist; andere bestehende Verwaltungsformulare fragen weiterhin nach dem Passwort.
 
 Die Schlüssel liegen standardmäßig in `backend/.local/settings.json`, mit Dateirechten `0600` auf unterstützten Systemen. Die Datei enthält die Schlüssel im Klartext: Zugriff auf Server, Sicherungen und Dateisystem entsprechend einschränken. Sie wird nicht ins Git-Repository eingecheckt. `DKHUB_SETTINGS_FILE` kann einen anderen Pfad bestimmen. Gespeicherte Werte haben Vorrang vor Umgebungsvariablen; ausdrücklich entfernte Schlüssel deaktivieren auch einen entsprechenden Umgebungswert. Das Admin-Passwort muss weiterhin vor dem Start gesetzt werden. Über HTTP werden Passwort und Schlüssel im Netzwerk unverschlüsselt übertragen; nutze die Oberfläche für diese Einstellungen nur über einen geschützten Zugriff und gebe sie nicht ins Internet frei.
 
@@ -78,7 +86,7 @@ Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzuge
 
 Jede App erhält einen eindeutigen DKHub-Pfad, zum Beispiel `http://SERVER-IP:8000/weather`. Beim Hinzufügen kann `weather` als Pfad eingetragen werden; ohne Eingabe wird er aus dem Namen erzeugt. Vorhandene Einträge erhalten ebenfalls automatisch einen Pfad und werden beim nächsten Speichern in der Katalogdatei festgehalten. Links lassen sich im Heimnetz teilen; `localhost` funktioniert nur auf dem jeweiligen Gerät. Der Link öffnet die einzelne App, nicht die gesamte Fensteranordnung. Für externe Links bietet DKHub die Option „Neuer Tab“.
 
-Kacheln lassen sich über „Bearbeiten“ mit Admin-Passwort ändern. Im geöffneten Fenster zeigt „Adresse“ die konfigurierte Ziel-URL; dort kann sie kopiert oder bearbeitet werden. Browser-Sicherheitsregeln verhindern bei fremden Seiten das Auslesen ihrer internen Navigation. Eine Kachel kann über „Entfernen“ mit Admin-Passwort gelöscht werden. Die externe Webseite und deren Daten werden dabei nicht verändert.
+Kacheln lassen sich über das Optionsmenü (⋯) und „Bearbeiten“ mit Admin-Passwort ändern. Im geöffneten Fenster zeigt „Adresse“ die konfigurierte Ziel-URL; dort kann sie kopiert oder bearbeitet werden. Browser-Sicherheitsregeln verhindern bei fremden Seiten das Auslesen ihrer internen Navigation. Eine Kachel kann über „Entfernen“ mit Admin-Passwort gelöscht werden. Die externe Webseite und deren Daten werden dabei nicht verändert.
 
 ## Webseiten hinzufügen
 
@@ -91,7 +99,7 @@ export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
 
 In PowerShell: `$env:DKHUB_ADMIN_PASSWORD = 'DEIN-EIGENES-LANGES-PASSWORT'` und anschließend das eigene Startskript ausführen. Das Passwort nicht im Repository speichern. Es gilt für den laufenden Prozess und muss beim späteren Start wieder gesetzt werden. Ohne Passwort bleibt die Startseite lesbar, das Hinzufügen ist deaktiviert.
 
-Auf der Startseite **Anwendung hinzufügen** wählen. Mit **Einbettung testen** wird die eingegebene Adresse vor dem Speichern als echte Vorschau geladen. Wenn der Bereich leer bleibt oder eine Fehlermeldung der Webseite zeigt, kann die Seite Einbettung blockieren; der Browser erlaubt keine verlässliche automatische Erkennung. Anschließend Name und erreichbare HTTP(S)-Adresse angeben und auswählen, ob die Webseite im Hub oder in einem neuen Tab geöffnet werden soll. Manche Webseiten erlauben keine Einbettung. `localhost` bezeichnet auf jedem Gerät dieses Gerät selbst; für andere Clients eine erreichbare Serveradresse angeben. HTTPS-Seiten können HTTP-Inhalte nicht einbetten.
+In der Bibliothek **App hinzufügen** wählen. Mit **Einbettung testen** wird die eingegebene Adresse vor dem Speichern als echte Vorschau geladen. Wenn der Bereich leer bleibt oder eine Fehlermeldung der Webseite zeigt, kann die Seite Einbettung blockieren; der Browser erlaubt keine verlässliche automatische Erkennung. Anschließend Name und erreichbare HTTP(S)-Adresse angeben und auswählen, ob die Webseite im Hub oder in einem neuen Tab geöffnet werden soll. Manche Webseiten erlauben keine Einbettung. `localhost` bezeichnet auf jedem Gerät dieses Gerät selbst; für andere Clients eine erreichbare Serveradresse angeben. HTTPS-Seiten können HTTP-Inhalte nicht einbetten.
 
 Die mitgelieferten Beispiele stehen in `backend/apps.json`. Beim ersten Speichern wird daraus zusammen mit dem neuen Eintrag `backend/.local/apps.json`; diese Datei enthält danach den aktuellen Katalog und bleibt bei Git-Updates erhalten. Bestehende Einträge in `backend/apps.json` werden beim ersten Speichern übernommen. Danach die aktive Datei `backend/.local/apps.json` sichern. Mit `DKHUB_APPS_FILE` kann ein anderer Speicherort angegeben werden.
 

@@ -1,2 +1,26 @@
 <!doctype html>
-<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DKHub Demo</title><style>body{font-family:system-ui,sans-serif;background:#fafbf7;color:#304135;margin:0;display:grid;place-items:center;min-height:100vh}.content{max-width:460px;padding:40px;text-align:center}.icon{background:#e5efde;color:#63855d;border-radius:18px;display:inline-grid;place-items:center;width:60px;height:60px;font-size:28px}h1{font-size:28px;margin:24px 0 12px}p{color:#71816d;line-height:1.7}</style></head><body><main class="content"><span class="icon" aria-hidden="true">✳</span><h1>Hallo aus deiner Demo-App!</h1><p>Diese Beispielseite läuft im DKHub-Projekt. So kannst du ausprobieren, wie eine eigene Web-App später im Hub angezeigt wird.</p></main></body></html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DKHub · Demo-App</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#153c44;color:#f1f8ee;font-family:system-ui,sans-serif}
+    main{min-height:100vh;display:grid;align-items:center;position:relative;isolation:isolate;overflow:hidden;padding:clamp(16px,min(6vw,8vh),100px)}
+    .sky{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+    section{max-width:34rem;width:57%}.tag{display:flex;align-items:center;gap:8px;font-size:clamp(12px,1.65vw,17px);font-weight:680;letter-spacing:.12em;text-transform:uppercase}
+    .tag span{width:20px;height:2px;background:#f4c589}h1{max-width:12ch;margin:.32em 0;font-size:clamp(27px,min(6.6vw,14vh),86px);line-height:1.02;letter-spacing:-.065em;text-wrap:balance}
+    p{margin:8px 0 0;max-width:40ch;color:#cfe5dd;font-size:clamp(13px,1.8vw,19px);line-height:1.55}
+    @media(max-width:420px){section{width:85%}.sky{opacity:.6}}
+  </style>
+</head>
+<body><main>
+  <svg class="sky" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="sky"><stop stop-color="#12383d"/><stop offset="1" stop-color="#286771"/></linearGradient><pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0H0v26" fill="none" stroke="#b6daca" stroke-width=".55" opacity=".28"/></pattern></defs>
+    <path fill="url(#sky)" d="M0 0h1000v430H0z"/><path d="M440 0h560v430H440z" fill="url(#grid)"/>
+    <circle cx="787" cy="148" r="66" fill="#efbc81"/><g stroke="#9dc8bb" fill="none" opacity=".55"><circle cx="787" cy="148" r="91"/><circle cx="787" cy="148" r="122" stroke-dasharray="2 6"/></g>
+    <path d="m350 430 180-115 76 21 113-111 72 22 74-91 135 75v199Z" fill="#347e7b"/><path d="m467 430 129-97 55 10 83-63 89 25 104-98 73 34v189Z" fill="#246766"/>
+    <path d="m375 430 250-64 42 8 146-52 70 14 117-60v154Z" fill="#185052"/><path d="m581 430 152-46 47 8 145-39 75 9v68Z" fill="#143f45"/>
+  </svg>
+  <section><div class="tag"><span></span>DKHub Studio</div><h1>Hallo aus deiner Demo-App!</h1>
+  <p>Diese Seite läuft direkt im Projekt. Hier kannst du ausprobieren, wie sich eine eigene Web-App im Hub anfühlt.</p></section>
+</main></body></html>
