@@ -10,8 +10,8 @@ function fixture() {
   const local=createHubTools(()=>state);
   const registry={
     registerTool(tool,{signal}) {definitions.set(tool.name,tool);signal.addEventListener('abort',()=>definitions.delete(tool.name));},
-    async getTools(){return [...definitions.keys()].flatMap(name=>[{name,source:foreign},{name,source:owner}]);},
-    async executeTool(handle,input){assert.equal(handle.source,owner);calls.push(handle.name);return JSON.stringify(await definitions.get(handle.name).execute(input));}
+    async getTools(){return [...definitions.keys()].flatMap(name=>[{name,source:foreign,window:owner}, {name,window:foreign}, name===TOOLS.open?{name,source:owner}:{name,window:owner}]);},
+    async executeTool(handle,input){assert.equal(handle.source ?? handle.window,owner);calls.push(handle.name);return JSON.stringify(await definitions.get(handle.name).execute(input));}
   };
   return {owner,registry,local,calls,routes,state,definitions};
 }

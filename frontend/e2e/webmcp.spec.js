@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import { mockCatalog, toggle, log, say } from './assistantFixture.js';
 
 test.beforeEach(mockCatalog);
-test.use({launchOptions:{args:['--enable-features=WebMCPTesting','--enable-blink-features=WebMCP,WebMCPTesting']}});
+// Full Chrome with the same base feature as chrome://flags/#enable-webmcp-testing.
+test.use({channel:'chromium',launchOptions:{args:['--enable-features=WebMCP']}});
 test('real browser discovers the tools before chat opens, rejects a bad ID, and executes chat actions',async({page})=>{
   // Observe the real Chromium calls; no mock registry or synthetic tool results.
   await page.addInitScript(()=>{
@@ -18,12 +19,14 @@ test('real browser discovers the tools before chat opens, rejects a bad ID, and 
   await page.goto('/');await expect(page.getByRole('heading',{name:'App-Bibliothek'})).toBeVisible();
   const names=()=>page.evaluate(async()=> {
     const mc=document.modelContext;
-    return mc?.getTools?(await mc.getTools()).filter(t=>t.source===window).map(t=>t.name).sort():[];
+    if(!mc?.getTools) return {secure:window.isSecureContext,modelContext:!!mc,canList:typeof mc?.getTools};
+    const handles=await mc.getTools();
+    return handles.map(t=>[t.name,('source' in t?t.source:t.window)===window]).sort();
   });
-  await expect.poll(names).toEqual(['dkhub_list_favorites','dkhub_open_app','dkhub_prepare_add_app','dkhub_search_apps','dkhub_show_library']);
+  await expect.poll(names).toEqual(['dkhub_list_favorites','dkhub_open_app','dkhub_prepare_add_app','dkhub_search_apps','dkhub_show_library'].map(name=>[name,true]));
   const call=(name,input)=>page.evaluate(async({name,input})=>{
     const mc=document.modelContext;
-    const tool=(await mc.getTools()).find(t=>t.source===window && t.name===name);
+    const tool=(await mc.getTools()).find(t=>('source' in t?t.source:t.window)===window && t.name===name);
     const value=await mc.executeTool(tool,input);return typeof value==='string'?JSON.parse(value):value;
   },{name,input});
   expect((await call('dkhub_search_apps',{query:'Sensoren'})).apps.map(a=>a.id)).toEqual(['garden']);

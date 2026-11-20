@@ -1,5 +1,8 @@
 // A Tool handle belongs to its document, not just its name. An iframe may
 // register the same name: never dispatch a Hub command to that registration.
+// The current draft calls this property "source"; Chrome 156 used "window".
+export const comesFrom = (handle, owner) => ('source' in handle ? handle.source : handle.window) === owner;
+
 export function connectHubTools(definitions, registry, owner, onTransport = () => {}) {
   const local = new Map(definitions.map(tool=>[tool.name,tool]));
   const lifecycle = new AbortController();
@@ -25,7 +28,7 @@ export function connectHubTools(definitions, registry, owner, onTransport = () =
       if (stopped || signal?.aborted) throw new DOMException('Abgebrochen','AbortError');
       if (!native) return local.get(name).execute(input);
       const tools = await registry.getTools();
-      const tool = tools.find(t=>t.name===name && t.source===owner);
+      const tool = tools.find(t=>t.name===name && comesFrom(t,owner));
       if (!tool) throw new Error('Das angeforderte DKHub-Werkzeug ist nicht verfügbar.');
       if (stopped || signal?.aborted) throw new DOMException('Abgebrochen','AbortError');
       // Do not replay an action locally after native execution: it may already have run.

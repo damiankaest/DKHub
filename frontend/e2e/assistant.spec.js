@@ -38,6 +38,8 @@ test('phone dialog fits the viewport, keeps the composer reachable and returns t
   expect(await panel.boundingBox()).toEqual({x:0,y:0,width:390,height:844});
   const box=await composer.boundingBox();expect(box.y+box.height).toBeLessThan(844);
   await page.screenshot({path:info.outputPath('assistant-mobile-review.png'),animations:'disabled'});
+  await composer.focus();await page.setViewportSize({width:390,height:550});
+  await expect.poll(async()=>{const r=await composer.boundingBox();return r.y+r.height;}).toBeLessThan(550);
   await page.keyboard.press('Escape');await expect(toggle(page)).toBeFocused();
   await toggle(page).click();await say(page,'Öffne DKCoach');
   await expect(panel).toHaveCount(0);await expect(page).toHaveURL(/\/coach$/);

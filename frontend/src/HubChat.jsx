@@ -13,7 +13,7 @@ function AiAccess({password,setPassword}) {
   return <details className="assistant-access" open={expanded} onToggle={e=>setExpanded(e.currentTarget.open)}>
         <summary><Icon name="key" size={16}/>KI-Zugang <small>{password?'Eingegeben':'Admin-Passwort erforderlich'}</small></summary>
         <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" placeholder="Passwort für diesen Hub"/></label>
-        <p>Für KI-Antworten erhält TypeSafe deine Nachricht. OpenAI erhält zusätzlich den KI-Verlauf und die App-Beschreibungen. Es können Kosten entstehen.</p>
+        <p>TypeSafe erhält deine Nachricht. Für Empfehlungen und freie Antworten erhält OpenAI zusätzlich den KI-Verlauf und die App-Beschreibungen. Es können Kosten entstehen.</p>
       </details>;
 }
 
@@ -32,13 +32,29 @@ export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
     const dialog=sheet.current;
     const body=document.body;
     const overflow=body.style.overflow;
+    const viewport=window.visualViewport;
+    // Some mobile keyboards shrink the visible viewport without resizing a fixed dialog.
+    function fitKeyboard() {
+      if (!dialog || !viewport) return;
+      if (viewport.scale!==1) {
+        dialog.style.removeProperty('--assistant-height');dialog.style.removeProperty('--assistant-top');
+        return;
+      }
+      dialog.style.setProperty('--assistant-height',viewport.height+'px');
+      dialog.style.setProperty('--assistant-top',viewport.offsetTop+'px');
+    }
     if (narrow && dialog) {
       dialog.showModal();body.style.overflow='hidden';
+      fitKeyboard();
+      viewport?.addEventListener('resize',fitKeyboard);viewport?.addEventListener('scroll',fitKeyboard);
       heading.current?.focus({preventScroll:true});
     } else field.current?.focus({preventScroll:true});
     return ()=>{
       if (dialog?.open) dialog.close();
-      if (narrow) body.style.overflow=overflow;
+      if (narrow) {
+        viewport?.removeEventListener('resize',fitKeyboard);viewport?.removeEventListener('scroll',fitKeyboard);
+        body.style.overflow=overflow;
+      }
     };
   },[visible,narrow]);
   useEffect(()=>{
