@@ -19,7 +19,7 @@ test('registers once, dispatches only to own document handles, returns minimal c
   const f=fixture();let transport;
   const bridge=connectHubTools(f.local,f.registry,f.owner,value=>{transport=value;});
   const result=await bridge.call(TOOLS.search,{query:'private text'});
-  assert.equal(transport,'webmcp');assert.equal(f.definitions.size,5);
+  assert.equal(transport,'webmcp');assert.equal(f.definitions.size,Object.keys(TOOLS).length);
   assert.deepEqual(result.apps,[{id:'x',name:'Studio',mode:'embed',category:'Musik'}]);
   assert.equal((await bridge.call(TOOLS.open,{id:'x'})).state,'opened');
   assert.deepEqual(f.routes,['x']);assert.deepEqual(f.calls,[TOOLS.search,TOOLS.open]);

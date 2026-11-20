@@ -47,3 +47,39 @@ test('AI action proposals resolve current IDs; external, ambiguous, stale and un
   assert.deepEqual((await reply(TOOLS.favorites,[],'favorites')).ids,['c']);
   assert.equal((await reply(TOOLS.search,[],'catalog')).total,3);
 });
+
+test('one Jev plan resolves live names; nested, multiple, stale and external matches do not misroute',async()=>{
+  const f=fixture();
+  f.state.apps=[...apps,{id:'d',name:'Wetter Radar',category:'Karten',mode:'embed',route:'regen-radar'}];
+  const plan=(query,tool=TOOLS.open,intent='open')=>resolveAiReply({intent,tool,app_ids:[],reply:'',query},f.call);
+  assert.equal((await plan('Bring mich bitte zu Wetter Radar!')).navigated,true);
+  assert.equal((await plan('Öffne /regen-radar')).navigated,true);
+  assert.deepEqual((await plan('Öffne Wetter oder Musikbox')).ids,['a','c']);
+  assert.deepEqual((await plan('Öffne Musik')).ids,['b']);
+  assert.deepEqual((await plan('Bring mich zur App für Schallplatten')).ids,['c']);
+  assert.deepEqual((await plan('Finde bitte etwas für Vinyl',TOOLS.search,'search')).ids,['b']);
+  f.state.apps=f.state.apps.filter(a=>a.id!=='d');
+  assert.match((await plan('Bring mich zu Regen-Radar')).text,/keine App/);
+  assert.deepEqual(f.changes,['d','d']);
+});
+
+test('the recent tool uses current browser history and closing requires the same active app at execution',async()=>{
+  const f=fixture();Object.assign(f.state,{activeId:'a',recent:['gone','c','a'],close:id=>f.changes.push('close:'+id)});
+  assert.deepEqual((await f.ask('Zuletzt geöffnet')).ids,['c','a']);
+  const close=(text,id='a')=>resolveAiReply({query:text,tool:TOOLS.close,intent:'close_active',reply:'',app_ids:[]},f.call,undefined,id);
+  assert.equal((await close('Schließe die aktuelle App')).navigated,true);
+  assert.match((await close('Schließe Musikbox')).text,/aktuelle Ansicht/);
+  f.state.activeId='c';assert.match((await close('Schließe die aktuelle App')).text,/geändert/);
+  f.state.activeId=null;assert.match((await close('Schließe die aktuelle App',null)).text,/keine App/);
+  await assert.rejects(f.call(TOOLS.close,{expectedId:5}),/Ungültige/);
+  assert.deepEqual(f.changes,['close:a']);
+});
+
+test('DK product names accept word breaks; compound matches are suggestions only',async()=>{
+  const f=fixture();
+  f.state.apps=[{id:'coach',name:'DKCoach',category:'Fitness',mode:'embed'},...apps];
+  const ask=query=>resolveAiReply({intent:'open',tool:TOOLS.open,app_ids:[],reply:'',query},f.call);
+  assert.equal((await ask('Bring mich bitte zu DK Coach.')).navigated,true);
+  assert.deepEqual((await ask('Öffne die App für Platten')).ids,['c']);
+  assert.deepEqual(f.changes,['coach']);
+});

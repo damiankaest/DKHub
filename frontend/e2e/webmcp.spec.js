@@ -23,7 +23,7 @@ test('real browser discovers the tools before chat opens, rejects a bad ID, and 
     const handles=await mc.getTools();
     return handles.map(t=>[t.name,('source' in t?t.source:t.window)===window]).sort();
   });
-  await expect.poll(names).toEqual(['dkhub_list_favorites','dkhub_open_app','dkhub_prepare_add_app','dkhub_search_apps','dkhub_show_library'].map(name=>[name,true]));
+  await expect.poll(names).toEqual(['dkhub_close_active_app','dkhub_list_favorites','dkhub_list_recent','dkhub_open_app','dkhub_prepare_add_app','dkhub_search_apps','dkhub_show_library'].map(name=>[name,true]));
   const call=(name,input)=>page.evaluate(async({name,input})=>{
     const mc=document.modelContext;
     const tool=(await mc.getTools()).find(t=>('source' in t?t.source:t.window)===window && t.name===name);
