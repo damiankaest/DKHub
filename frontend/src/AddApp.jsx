@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { addApp, updateApp } from './api';
 
-export function AddApp({ app: existing, onAdded, onCancel }) {
+export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState(existing?.url || '');
@@ -36,7 +36,7 @@ export function AddApp({ app: existing, onAdded, onCancel }) {
     setBusy(true);
     setError('');
     try {
-      const details = { name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), manifest, mode: fields.get('mode'), route: fields.get('route') || null };
+      const details = { name: fields.get('name'), url: fields.get('url'), description: fields.get('description'), manifest, category: fields.get('category').trim() || 'Meine Apps', mode: fields.get('mode'), route: fields.get('route') || null };
       const app = existing ? await updateApp(existing.id, details, fields.get('password')) : await addApp(details, fields.get('password'));
       onAdded(app);
     } catch (err) {
@@ -54,6 +54,8 @@ export function AddApp({ app: existing, onAdded, onCancel }) {
         {preview && <div className="embed-test-frame"><iframe title="Einbettungsvorschau" src={preview} referrerPolicy="no-referrer" /></div>}
       </div>
       <div className="embed-test"><p>Die Analyse lädt die Seite vom Server und sendet lesbare Inhalte an OpenAI. Kosten können entstehen. Nur Seiten analysieren, deren Inhalte du teilen möchtest.</p><button type="button" className="button secondary" onClick={analyze} disabled={busy || !url}>Mit KI beschreiben</button>{analysisMessage && <p role="status">{analysisMessage}</p>}</div>
+      <label>Kategorie<input name="category" list="app-categories" defaultValue={existing?.category || 'Meine Apps'} maxLength="80" placeholder="z. B. Fitness" /></label>
+      <datalist id="app-categories">{categories.map(category => <option key={category} value={category} />)}</datalist>
       <label>Beschreibung <span>(optional)</span><input name="description" value={description} onChange={e => setDescription(e.target.value)} maxLength="300" placeholder="Worum geht es?" /></label>
       <label>Ausführliche Beschreibung für die Suche <span>(optional)</span><textarea value={manifest} onChange={e => setManifest(e.target.value)} maxLength="3000" rows="5" /></label>
       <label>DKHub-Pfad <span>(optional, z. B. weather)</span><input name="route" defaultValue={existing?.route || ""} pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength="80" placeholder="Automatisch aus dem Namen" /></label>

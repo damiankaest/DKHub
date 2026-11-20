@@ -145,3 +145,20 @@ def test_reorder_persists_without_losing_data_and_rejects_stale_catalog(tmp_path
     assert response.json() == original[::-1]
     assert client.get('/api/apps').json() == original[::-1]
     assert json.loads(catalog.read_text(encoding='utf-8')) == original[::-1]
+
+
+def test_category_is_saved_updated_and_preserved_for_older_clients(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, 'CATALOG', tmp_path / 'apps.json')
+    monkeypatch.setenv('DKHUB_ADMIN_PASSWORD', 'secret')
+    headers = {'Origin': 'http://testserver', 'X-DKHub-Admin': 'secret'}
+    payload = {'name': 'Training', 'url': 'https://example.com', 'category': '  Fitness  '}
+    created = client.post('/api/apps', headers=headers, json=payload)
+    assert created.status_code == 201
+    assert created.json()['category'] == 'Fitness'
+    app_id = created.json()['id']
+    old_client = {'name':'Training', 'url':'https://example.com'}
+    assert client.put(f'/api/apps/{app_id}', headers=headers, json=old_client).json()['category'] == 'Fitness'
+    updated = client.put(f'/api/apps/{app_id}', headers=headers, json={**old_client, 'category':'Medien'})
+    assert updated.json()['category'] == 'Medien'
+    assert client.get('/api/apps').json()[-1]['category'] == 'Medien'
+    assert client.put(f'/api/apps/{app_id}', headers=headers, json={**old_client, 'category':'   '}).status_code == 422

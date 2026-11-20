@@ -56,6 +56,10 @@ Beim Hinzufügen oder Bearbeiten einer Anwendung können Admins **Mit KI beschre
 
 Die Analyse folgt keinen Weiterleitungen, führt kein JavaScript aus und meldet sich nicht an. Sie erkennt daher bei vielen React-Apps nur eine leere Hülle oder eine Anmeldeseite. In diesem Fall Beschreibung manuell ergänzen. Abfragen mit Query-Parametern, Zugangsdaten und Link-Local-Adressen sind nicht zugelassen. Der KI-Chat erhält die Beschreibung als Katalogkontext; Jev klassifiziert weiterhin zunächst die Anfrage, während das Sprachmodell passende Apps auswählt. Das garantiert weder korrekte Beschreibungen noch eine bestimmte Antwortgeschwindigkeit. Ein Live-Test mit Anbieter-Zugang ist erforderlich.
 
+## Kategorien und Suche
+
+Beim Hinzufügen oder Bearbeiten einer App lässt sich eine Kategorie frei eingeben oder aus bestehenden Kategorien auswählen. Ohne Eingabe wird „Meine Apps“ verwendet. Die Kategorie wird im gemeinsamen App-Katalog gespeichert; bestehende Kategorien bleiben beim Bearbeiten erhalten. Auf der Startseite kann nach Kategorie gefiltert und gleichzeitig nach Name, Kategorie, Kurz- oder ausführlicher Beschreibung gesucht werden. Der Filter gilt für den aktuellen Browserzustand und ändert keine Katalogdaten.
+
 ## Favoriten und Verlauf
 
 Eine Kachel oder eine geöffnete App kann mit dem Stern zu den Favoriten hinzugefügt werden. Die Navigation zeigt Favoriten und die letzten fünf geöffneten Anwendungen. Die Listen werden nur im jeweiligen Browser gespeichert und nicht zwischen Geräten synchronisiert. Eingebettete Apps werden für eine Live-Vorschau geladen und beim Öffnen im selben Frame vergrößert. Sie bleiben beim Wechsel im Browser bestehen, solange DKHub geöffnet bleibt; einzelne Webseiten können sich selbst neu laden. Die Vorschau stellt echte Verbindungen her und kann Ressourcen benötigen; externe Links zeigen zunächst ein Platzhalterbild. Einbettung kann von Webseiten untersagt werden.

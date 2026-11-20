@@ -148,7 +148,17 @@ class NewApp(BaseModel):
     description: str = Field(default="", max_length=300)
     mode: Literal["embed", "external"] = "external"
     manifest: str | None = Field(default=None, max_length=3000)
+    category: str | None = Field(default=None, max_length=80)
     route: str | None = Field(default=None, max_length=80, pattern=ROUTE_PATTERN)
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, value: str | None) -> str | None:
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError("Category cannot be empty")
+        return value
 
 
 @app.post("/api/apps", response_model=AppEntry, status_code=201)
@@ -159,7 +169,7 @@ def add_app(entry: NewApp, request: Request, admin_password: str = Header(defaul
         raise HTTPException(422, "Name is required")
     try:
         app_entry = AppEntry(id=uuid4().hex, route=entry.route, name=name,
-                             description=entry.description.strip(), manifest=(entry.manifest or "").strip(), category="Meine Apps",
+                             description=entry.description.strip(), manifest=(entry.manifest or "").strip(), category=entry.category or "Meine Apps",
                              icon="globe", color="sage", url=entry.url.strip(),
                              mode=entry.mode, label="Webseite")
     except ValueError as exc:
@@ -194,7 +204,7 @@ def update_app(app_id: str, entry: NewApp, request: Request, admin_password: str
         try:
             updated = AppEntry.model_validate({**old.model_dump(), "name": name,
                 "url": entry.url.strip(), "description": entry.description.strip(), "manifest": entry.manifest.strip() if entry.manifest is not None else old.manifest,
-                "mode": entry.mode, "route": route})
+                "mode": entry.mode, "category": entry.category if entry.category is not None else old.category, "route": route})
         except ValueError as exc:
             raise HTTPException(422, "Invalid app details") from exc
         save_catalog([updated if item.id == app_id else item for item in entries])
