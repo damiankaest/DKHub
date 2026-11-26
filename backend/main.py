@@ -293,6 +293,8 @@ def director_request(path: str, method: str = "GET", payload: dict | None = None
                      headers={"X-Director-Token": token, "Content-Type": "application/json"})
     try:
         timeout = 7200 if method == "POST" and "/backups" in path else (320 if method == "POST" else 40)
+        if method == "POST" and path.endswith("/postgres/backup"):
+            timeout = 650
         with urlopen(req, timeout=timeout) as response:
             return json.load(response)
     except HTTPError as exc:

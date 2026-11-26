@@ -86,3 +86,40 @@ for (const width of [1360, 360]) {
     expect(buildCalls).toBe(2);
   });
 }
+
+test('controls automatic releases and PostgreSQL backups from a saved project', async ({ page }) => {
+  let record = { id, revision: 1, plan: { ...plan, sqlite: false, postgres: true },
+    generated: true, status: 'ready', path: serverPath, phase: 'catalog',
+    image_built: true, image: 'dkforge/project-' + id + ':v1', service_id: 'dkhub-' + id,
+    url: 'http://127.0.0.1:25123', tile_id: 'director-' + id };
+  await page.route('**/api/**', route => route.fulfill({ status: 404 }));
+  await page.route('**/api/auth', route => route.fulfill({ json: { password_required: false } }));
+  await page.route('**/api/theme', route => route.fulfill({ json: defaultTheme }));
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [] }));
+  await page.route('**/api/forge/projects/list', route => route.fulfill({ json: [{ id, name: plan.name }] }));
+  await page.route('**' + path + '/status', route => route.fulfill({ json: record }));
+  await page.route('**' + path + '/watch', route => {
+    expect(route.request().method()).toBe('PUT');
+    record = { ...record, watch: route.request().postDataJSON().enabled };
+    return route.fulfill({ json: record });
+  });
+  const dump = 'E:\\Director\\backups\\db.dump';
+  await page.route('**' + path + '/postgres/backup', route => route.fulfill({ json: { path: dump } }));
+  await page.route('**' + path + '/redeploy', route => {
+    expect(route.request().postDataJSON()).toEqual({ revision: 1 });
+    record = { ...record, status: 'ready', published_image: 'dkforge/project-' + id + ':r012345' };
+    return route.fulfill({ status: 202, json: { ...record, status: 'queued' } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Dienste', exact: true }).click();
+  await page.getByRole('button', { name: 'Neuen eigenen Dienst erstellen' }).click();
+  await page.getByRole('button', { name: 'Gespeicherte Projekte' }).click();
+  await page.getByLabel('Projekt öffnen').selectOption(id);
+  await page.getByLabel('Lokale Quelländerungen automatisch veröffentlichen').click();
+  await expect(page.getByLabel('Lokale Quelländerungen automatisch veröffentlichen')).toBeChecked();
+  await page.getByRole('button', { name: 'Datenbank sichern' }).click();
+  await expect(page.getByText(dump)).toBeVisible();
+  await page.getByRole('button', { name: 'Neu veröffentlichen' }).click();
+  await expect(page.getByText(record.published_image || ':r012345', { exact: false })).toBeVisible();
+});

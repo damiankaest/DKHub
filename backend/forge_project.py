@@ -13,6 +13,7 @@ TEMPLATE_FILES = (
     ".dockerignore", ".gitignore", "Dockerfile", "backend/app.py", "backend/requirements.txt",
     "frontend/index.html", "frontend/package.json", "frontend/package-lock.json",
     "frontend/vite.config.js", "frontend/src/main.jsx", "frontend/src/style.css",
+    "ui/package.json", "ui/index.js", "ui/styles.css", "ui/README.md", "ui/CHANGELOG.md",
 )
 MARKER = ".dkforge-project"
 
@@ -63,7 +64,7 @@ def generate(folder, project_id, revision, plan):
         target.parent.mkdir(parents=True, exist_ok=True)
         with (TEMPLATE / relative).open("rb") as source, target.open("xb") as output:
             shutil.copyfileobj(source, output)
-    write_text(folder / "plan.json", json.dumps({"template_version": 1, **plan}, ensure_ascii=False, indent=2) + "\n")
+    write_text(folder / "plan.json", json.dumps({"template_version": 2, **plan}, ensure_ascii=False, indent=2) + "\n")
     write_text(folder / "README.md", """# Projekt starten
 
 ## Docker Desktop
@@ -73,6 +74,9 @@ Für die SQLite-Variante einen eigenen Namen für das Datenvolume wählen und
 `docker run --rm -p 127.0.0.1:8080:8000 --mount type=volume,src=forge-app-data,dst=/data forge-app`
 ausführen. Bei der Variante ohne SQLite den Mount weglassen. Die Oberfläche
 ist unter http://127.0.0.1:8080 erreichbar. `/health` prüft die Bereitstellung.
+Bei PostgreSQL setzt DKForge die Verbindungsvariablen. Außerhalb von DKHub
+eine eigene Datenbank bereitstellen und `PGHOST`, `PGPORT`, `PGDATABASE`,
+`PGUSER` und `PGPASSWORD` zur Laufzeit übergeben.
 
 ## Lokal entwickeln
 
@@ -114,7 +118,9 @@ vertrauenswürdiges lokales Netz gedacht und hat noch keine Benutzerkonten.
 """)
     data = ("SQLite speichert die Beispiel-Notizen in `/data/app.sqlite3` im benannten Volume."
             if plan["sqlite"] else "Das Grundgerüst ist ohne Datenbank konfiguriert.")
-    model = bullets(plan["data_model"]) if plan["sqlite"] else "Entfällt."
+    if plan.get("postgres"):
+        data = "PostgreSQL speichert die Beispiel-Notizen in einer eigenen Datenbank mit eigener Rolle."
+    model = bullets(plan["data_model"]) if plan["sqlite"] or plan.get("postgres") else "Entfällt."
     write_text(folder / "docs/architecture.md", f"""# Architektur
 
 Vite baut die React-Oberfläche. FastAPI liefert sie und die API unter derselben
@@ -131,7 +137,7 @@ Adresse aus. HTTP-Port im Container ist 8000. `GET /health` prüft die App.
 
 {bullets(plan["assumptions"])}
 """)
-    example = ("Beispiel-Notizen lassen sich speichern und laden." if plan["sqlite"]
+    example = ("Beispiel-Notizen lassen sich speichern und laden." if plan["sqlite"] or plan.get("postgres")
                else "Die Beispielseite liest ihre Projektbeschreibung aus der API.")
     items = "\n".join(f"{index}. {' '.join(task.splitlines())}" for index, task in enumerate(plan["roadmap"], 1))
     write_text(folder / "docs/roadmap.md", f"""# Priorisierte Roadmap

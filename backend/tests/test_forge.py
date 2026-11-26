@@ -67,8 +67,9 @@ def test_manual_edit_generates_independent_project(client, sqlite):
     project = Path(generated["path"])
     assert json.loads((project / "plan.json").read_text(encoding="utf-8"))["audience"] == "Kleine Teams"
     for name in ["README.md", "AGENTS.md", "CLAUDE.md", "Dockerfile", ".dockerignore", "docs/vision.md",
-                 "docs/architecture.md", "docs/roadmap.md", "frontend/package-lock.json"]:
+                 "docs/architecture.md", "docs/roadmap.md", "frontend/package-lock.json", "ui/CHANGELOG.md"]:
         assert (project / name).is_file(), name
+    assert json.loads((project / "ui/package.json").read_text())["version"] == "1.0.0"
     roadmap = (project / "docs/roadmap.md").read_text(encoding="utf-8")
     assert "Im Grundgerüst vorhanden" in roadmap and "Suchfilter für Projekte ergänzen" in roadmap
     assert action(client, revised, "generate").json()["path"] == str(project)
@@ -196,3 +197,44 @@ def test_concurrent_build_requests_share_the_same_job(client, monkeypatch):
         release.set()
     assert wait(client, project)["status"] == "ready"
     assert builds == [project["image"]]
+
+
+def test_watch_publishes_source_changes_once_and_ignores_local_data(client, monkeypatch):
+    from forge_source import source_digest
+
+    project = action(client, create(client), "generate").json()
+    folder = Path(project["path"])
+    root_digest = source_digest(folder)
+    (folder / ".local").mkdir()
+    (folder / ".local" / "app.sqlite3").write_bytes(b"local database")
+    assert source_digest(folder) == root_digest
+    monkeypatch.setenv("DKDIRECTOR_BIND_IP", "127.0.0.1")
+    calls = []
+
+    def director(path, method="GET", payload=None):
+        if path.endswith("/health"):
+            return {"status": "reachable"}
+        calls.append((path, payload))
+        return {"id": project["expected_service_id"], "host_ip": "127.0.0.1", "host_port": 25125}
+
+    monkeypatch.setattr(forge, "build_image", lambda *args: None)
+    monkeypatch.setattr(main, "director_request", director)
+    assert action(client, project, "build").status_code == 202
+    ready = wait(client, project)
+    assert ready["status"] == "ready"
+    with client:
+        path = f"{BASE}/{project['id']}"
+        assert client.put(path + "/watch", json={"enabled": True}).json()["watch"]
+        source = folder / "backend" / "app.py"
+        source.write_bytes(source.read_bytes() + b"\n# changed\n")
+        deadline = monotonic() + 10
+        while monotonic() < deadline:
+            state = client.post(path + "/status").json()
+            if state["status"] == "ready" and state["published_image"] != ready["published_image"]:
+                break
+            sleep(.08)
+        else:
+            pytest.fail("Source change was not published")
+        assert client.put(path + "/watch", json={"enabled": False}).status_code == 200
+    assert [entry[0].split("/")[-1] for entry in calls] == ["start", "release"]
+    assert state["service_id"] == ready["service_id"] and state["tile_id"] == ready["tile_id"]

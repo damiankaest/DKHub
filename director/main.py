@@ -1,6 +1,7 @@
 """DKDirector: loopback-only API for a small set of managed Docker services."""
 
 import http.client
+from contextlib import nullcontext
 import ipaddress
 import json
 import os
@@ -15,11 +16,12 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .service_data import (MountRequest, backup_router, load_definition, save_definition,
-                           service_data_operation, storage_issue, volume_engine, volume_view)
+                           service_data_operation, set_definition_image, storage_issue, volume_engine, volume_view)
 from .volumes import BackupError, Volume, validate_mounts
+from .forge_postgres import Postgres
 
 app = FastAPI(title="DKDirector", docs_url=None, redoc_url=None, openapi_url=None)
 LABEL = "io.dkhub.director=managed"
@@ -116,7 +118,9 @@ def service_view(item: dict) -> dict:
             "host_port": int(mapped) if mapped and mapped.isdigit() else None,
             "host_ip": binding[0].get("HostIp") if binding else None,
             "volumes": sorted(volumes, key=lambda entry: entry["key"]),
-            **({"forge_project": labels[FORGE_LABEL]} if FORGE_LABEL in labels else {})}
+            **({"forge_project": labels[FORGE_LABEL],
+                "forge_postgres": labels.get("io.dkhub.forge-database") == "postgres"}
+               if FORGE_LABEL in labels else {})}
 
 
 def inspect_service(service_id: str) -> dict:
@@ -207,11 +211,19 @@ def port_stays_blocked(service_id: str) -> bool:
     return inspect_service(service_id)["port_blocked"]
 
 
-def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=(), *, forge_id=None) -> int:
-    """Start a new service and return the host port assigned to it."""
-    rejected: set[int] = set()
+def launch_service(service_id, name, image, port, ip, host_port, volumes, *, forge_id=None, runtime=()):
     mounts = [arg for volume in volumes for arg in ("--mount", volume.mount())]
     forge_label = ("--label", f"{FORGE_LABEL}={forge_id}") if forge_id else ()
+    docker("run", "-d", "--pull", "never", "--restart", "unless-stopped",
+           "--name", service_id, "--label", LABEL,
+           "--label", f"io.dkhub.name={name}", "--label", f"io.dkhub.port={port}",
+           "--label", f"io.dkhub.host-ip={ip}", "--label", f"io.dkhub.host-port={host_port}",
+           "--publish", f"{ip}:{host_port}:{port}", *forge_label, *mounts, *runtime, "--", image, timeout=30)
+
+
+def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=(), *, forge_id=None, runtime=()) -> int:
+    """Start a new service and return the host port assigned to it."""
+    rejected: set[int] = set()
     # The lock stops parallel installs from picking the same port.
     with INSTALL_LOCK:
         for _ in range(5):
@@ -219,11 +231,8 @@ def run_service(service_id: str, name: str, image: str, port: int, ip: str, volu
             host_port = free_port(ip, rejected)
             try:
                 # Generated names, fixed labels and no user-supplied Docker flags or host mounts.
-                docker("run", "-d", "--pull", "never", "--restart", "unless-stopped",
-                       "--name", service_id, "--label", LABEL,
-                       "--label", f"io.dkhub.name={name}", "--label", f"io.dkhub.port={port}",
-                       "--label", f"io.dkhub.host-ip={ip}", "--label", f"io.dkhub.host-port={host_port}",
-                       "--publish", f"{ip}:{host_port}:{port}", *forge_label, *mounts, "--", image, timeout=30)
+                launch_service(service_id, name, image, port, ip, host_port, volumes,
+                               forge_id=forge_id, runtime=runtime)
             except HTTPException as exc:
                 if exc.status_code != 502:
                     raise
@@ -392,19 +401,47 @@ def apply_state_change(service_id: str, action: str):
 class ForgeInstall(BaseModel):
     name: str = Field(min_length=1, max_length=60, pattern=r"^[^\x00-\x1f\x7f]+$")
     sqlite: bool
+    postgres: bool = False
+
+    @model_validator(mode="after")
+    def one_database(self):
+        if self.sqlite and self.postgres:
+            raise ValueError("Wähle SQLite oder PostgreSQL.")
+        return self
 
 
-def forge_identity(project_id):
+class ForgeRelease(ForgeInstall):
+    release: str = Field(pattern=r"^r[a-f0-9]{32}$")
+
+
+def forge_identity(project_id, release="v1"):
     if not re.fullmatch(r"[a-f0-9]{32}", project_id):
         raise HTTPException(404, "DKForge-Projekt existiert nicht.")
-    return f"dkhub-{project_id}", f"dkforge/project-{project_id}:v1"
+    return f"dkhub-{project_id}", f"dkforge/project-{project_id}:{release}"
 
 
-def inspect_forge_service(project_id, service_id, image):
+def inspect_forge_service(project_id, service_id, image=None):
     service = inspect_service(service_id)
-    if service.get("forge_project") != project_id or service["image"] != image:
+    if (service.get("forge_project") != project_id
+            or not re.fullmatch(rf"dkforge/project-{project_id}:(?:v1|r[a-f0-9]{{32}})", service["image"])
+            or (image is not None and service["image"] != image)):
         raise HTTPException(409, f"Dienst-ID {service_id} ist bereits anderweitig belegt.")
     return service
+
+
+def forge_runtime(project_id, payload):
+    return Postgres().project_args(project_id) if payload.postgres else nullcontext(())
+
+
+def forge_storage(service, payload, volumes):
+    if (service["volumes"] != list(map(volume_view, volumes))
+            or service.get("forge_postgres", False) != payload.postgres):
+        raise HTTPException(409, "Die Datenbank- oder Volume-Zuordnung weicht vom Projektplan ab.")
+
+
+def container_exists(name):
+    containers = docker("ps", "-a", "--filter", f"name=^/{name}$", "--format", "{{.Names}}")
+    return name in containers.splitlines()
 
 
 @app.post("/forge/{project_id}/start")
@@ -414,8 +451,7 @@ def start_forge(project_id: str, payload: ForgeInstall, x_director_token: str = 
     ip = binding_ip()
     volumes = [Volume(service_id, "data", "/data")] if payload.sqlite else []
     with service_data_operation():
-        containers = docker("ps", "-a", "--filter", f"name=^/{service_id}$", "--format", "{{.Names}}")
-        if service_id in containers.splitlines():
+        if container_exists(service_id):
             service = inspect_forge_service(project_id, service_id, image)
         else:
             docker("image", "inspect", image)  # Forge only launches the locally built tag.
@@ -424,10 +460,10 @@ def start_forge(project_id: str, payload: ForgeInstall, x_director_token: str = 
                     volumes = volume_engine().provision(service_id, [("data", "/data")])
                 except BackupError as exc:
                     raise HTTPException(502, f"Volume für {service_id} konnte nicht bereitgestellt werden: {exc}") from exc
-            run_service(service_id, payload.name, image, 8000, ip, volumes, forge_id=project_id)
+            with forge_runtime(project_id, payload) as runtime:
+                run_service(service_id, payload.name, image, 8000, ip, volumes, forge_id=project_id, runtime=runtime)
             service = inspect_forge_service(project_id, service_id, image)
-        if service["volumes"] != list(map(volume_view, volumes)):
-            raise HTTPException(409, f"Die Volume-Zuordnung von {service_id} weicht vom Projektplan ab.")
+        forge_storage(service, payload, volumes)
         if volumes and load_definition(service_id, required=False) is None:
             try:
                 volume_engine().verify(volumes[0])
@@ -443,9 +479,87 @@ def start_forge(project_id: str, payload: ForgeInstall, x_director_token: str = 
 @app.get("/forge/{project_id}/health")
 def forge_health(project_id: str, x_director_token: str = Header(default="")):
     check_token(x_director_token)
-    service_id, image = forge_identity(project_id)
-    service = inspect_forge_service(project_id, service_id, image)
+    service_id, _ = forge_identity(project_id)
+    service = inspect_forge_service(project_id, service_id)
     if service["state"] != "running" or not service["host_port"]:
         return {"status": service["state"] if service["state"] != "running" else "port_blocked"}
     code = probe(service["host_ip"], service["host_port"], "/health")
     return {"status": "reachable" if code == 200 else "unreachable", "http_status": code}
+
+
+def wait_for_forge(project_id, service_id, image=None, *, seconds=25):
+    deadline = time.monotonic() + seconds
+    while True:
+        service = inspect_forge_service(project_id, service_id, image)
+        if (service["state"] == "running" and service["host_port"]
+                and probe(service["host_ip"], service["host_port"], "/health") == 200):
+            return service
+        if service["state"] in {"dead", "exited"} or time.monotonic() >= deadline:
+            raise HTTPException(502, "Die neue Version besteht den Health-Check nicht.")
+        time.sleep(.5)
+
+
+@app.post("/forge/{project_id}/release")
+def release_forge(project_id: str, payload: ForgeRelease, x_director_token: str = Header(default="")):
+    check_token(x_director_token)
+    service_id, image = forge_identity(project_id, payload.release)
+    previous = service_id + "-rollback"
+
+    def restore_previous():
+        if container_exists(service_id):
+            inspect_forge_service(project_id, service_id)
+            docker("rm", "-f", "--", service_id)
+        docker("rename", previous, service_id)
+        docker("start", "--", service_id)
+        old = wait_for_forge(project_id, service_id, seconds=10)
+        set_definition_image(service_id, old["image"])
+
+    with service_data_operation():
+        if container_exists(previous):
+            label = docker("inspect", "--format", '{{index .Config.Labels "io.dkhub.forge"}}', previous)
+            if label.strip() != project_id:
+                raise HTTPException(409, "Der Rollback-Containername ist bereits belegt.")
+            try:
+                serving = wait_for_forge(project_id, service_id, seconds=2) if container_exists(service_id) else None
+            except HTTPException:
+                serving = None
+            if serving:
+                set_definition_image(service_id, serving["image"])
+                docker("rm", "--", previous)
+            else:
+                restore_previous()
+        old = inspect_forge_service(project_id, service_id)
+        if old["image"] == image:
+            return wait_for_forge(project_id, service_id, image)
+        if old["state"] != "running" or not old["fixed_port"] or not old["host_port"]:
+            raise HTTPException(409, "Starte den Dienst mit seinem festen Port vor der Neuveröffentlichung.")
+        docker("image", "inspect", image)
+        volumes = [Volume(service_id, "data", "/data")] if payload.sqlite else []
+        forge_storage(old, payload, volumes)
+        issue = storage_issue(old, verify=True)
+        if issue:
+            raise HTTPException(409, issue)
+        with forge_runtime(project_id, payload) as runtime:
+            docker("rename", service_id, previous)
+            try:
+                docker("stop", "--", previous, timeout=60)
+                launch_service(service_id, old["name"], image, 8000, old["host_ip"], old["host_port"],
+                               volumes, forge_id=project_id, runtime=runtime)
+                service = wait_for_forge(project_id, service_id, image)
+                set_definition_image(service_id, image)
+            except (HTTPException, OSError) as exc:
+                try:
+                    restore_previous()
+                except (HTTPException, OSError) as rollback_error:
+                    raise HTTPException(502, f"Veröffentlichung und Container-Rollback fehlgeschlagen. Prüfe {service_id} und {previous}. Die Daten wurden nicht gelöscht.") from rollback_error
+                raise HTTPException(502, f"Die Neuveröffentlichung ist fehlgeschlagen. Der vorige Container wurde wieder gestartet. {getattr(exc, 'detail', '')}") from exc
+        docker("rm", "--", previous)
+        return service
+
+
+@app.post("/forge/{project_id}/postgres/backup")
+def backup_forge_postgres(project_id: str, x_director_token: str = Header(default="")):
+    check_token(x_director_token)
+    forge_identity(project_id)
+    with service_data_operation():
+        return Postgres().backup(project_id)

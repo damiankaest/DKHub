@@ -57,15 +57,29 @@ def save_definition(service_id, name, image, port, ip, host_port, volumes):
     record = {"version": 1, "id": service_id, "name": name, "image": image,
               "container_port": port, "host_ip": ip, "host_port": host_port,
               "restart_policy": "unless-stopped", "volumes": [asdict(volume) for volume in volumes]}
+    write_definition(path, record)
+
+
+def write_definition(path, record, *, replace=False):
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
         temp = Path(stream.name)
         try:
             json.dump(record, stream, ensure_ascii=False)
             stream.close()
-            os.link(temp, path)
+            if replace:
+                os.replace(temp, path)
+            else:
+                os.link(temp, path)
         finally:
             stream.close()
-            temp.unlink()
+            temp.unlink(missing_ok=True)
+
+
+def set_definition_image(service_id, image):
+    definition = load_definition(service_id, required=False)
+    if definition:
+        record, _ = definition
+        write_definition(definition_path(service_id), {**record, "image": image}, replace=True)
 
 
 def load_definition(service_id, *, required=True):
