@@ -3,6 +3,7 @@ import { EnvFields, envPayload, randomSecret } from './EnvFields';
 import { Icon } from '../Icon';
 import { Notice } from './Notice';
 import { VolumeFields, volumePayload } from './VolumeFields';
+import { ComposeImport } from './ComposeImport';
 
 // Search first, then a short form for the chosen app. onSearch and onInstall throw readable errors.
 // A short key for a data path such as /var/lib/app -> app.
@@ -33,6 +34,7 @@ export function InstallPanel({ locked, onSearch, onInspect, onInstall }) {
   const [volumeRows, setVolumeRows] = useState([]);
   const [envRows, setEnvRows] = useState([]);
   const [needs, setNeeds] = useState(null);
+  const [imported, setImported] = useState(null);
   const wanted = useRef('');
   const [pending, setPending] = useState('');
   const [error, setError] = useState('');
@@ -72,11 +74,21 @@ export function InstallPanel({ locked, onSearch, onInspect, onInstall }) {
   }
   function choose(item) {
     setImage(item.name); setName(item.name.split('/').pop()); setTag('latest'); setPort(''); setPortChoices(null); setError('');
-    setVolumeRows([]); setEnvRows([]);
+    setVolumeRows([]); setEnvRows([]); setImported(null);
     lookUp(`${item.name}:latest`);
   }
+  // Fields from a pasted compose file come first; the image check only adds what is missing.
+  function importCompose(service) {
+    setImage(service.image); setName(service.name); setTag(service.tag); setError('');
+    setPort(service.ports.length === 1 ? String(service.ports[0]) : '');
+    setPortChoices(service.ports.length > 1 ? service.ports : null);
+    setVolumeRows(service.volumes.map((volume, id) => ({ ...volume, id: 700 + id })));
+    setEnvRows(service.env.map((entry, id) => ({ ...entry, id: 2000 + id })));
+    setImported(service.notes);
+    lookUp(`${service.image}:${service.tag}`);
+  }
   function back() {
-    setImage(''); setError(''); setNeeds(null); wanted.current = '';
+    setImage(''); setError(''); setNeeds(null); setImported(null); wanted.current = '';
     requestAnimationFrame(() => queryField.current?.focus());
   }
   function install(event) {
@@ -106,6 +118,7 @@ export function InstallPanel({ locked, onSearch, onInspect, onInstall }) {
       <div><strong>{item.name}</strong>{item.official && <span className="official">Offiziell</span>}{item.description && <p>{item.description}</p>}</div>
       <button type="button" className="button secondary" aria-label={`Auswählen: ${item.name}`} onClick={() => choose(item)}>Auswählen</button>
     </li>)}</ul>}
+    <ComposeImport disabled={busy || locked} onImport={importCompose} />
   </div>;
 
   return <form className="service-box director-install" onSubmit={install}>
@@ -113,6 +126,9 @@ export function InstallPanel({ locked, onSearch, onInspect, onInstall }) {
     <h2 ref={heading} tabIndex={-1}>{image} installieren</h2>
     <p>Installiere nur Apps, denen du vertraust. Apps mit Zugangsdaten, einer Datenbank oder eigenen Einstellungen benötigen eine zusätzliche Einrichtung.</p>
     <label className="director-label">Name<input required maxLength="60" value={name} disabled={busy} onChange={event => setName(event.target.value)} /><small>So heißt die Kachel in deiner Bibliothek.</small></label>
+    {imported && <div className="service-notice compose-notes" role="status">
+      <div><strong>Aus deiner docker-compose.yml übernommen. Bitte prüfe die Angaben.</strong>{imported.length > 0 && <ul>{imported.map(note => <li key={note}>{note}</li>)}</ul>}</div>
+    </div>}
     {portChoices && <fieldset className="director-port" disabled={busy}>
       <legend>Port der Weboberfläche</legend>
       <p ref={question} tabIndex={-1} role="alert">Eine Rückfrage: {portChoices.length ? 'Diese App nennt mehrere Anschlüsse (Ports). Wähle den für die Webseite, oft ist es 80, 8080 oder 3000.' : 'Diese App verrät nicht, unter welchem Anschluss (Port) ihre Webseite läuft. Die Zahl steht in der Anleitung der App.'}</p>
@@ -127,7 +143,7 @@ export function InstallPanel({ locked, onSearch, onInspect, onInstall }) {
     </details>
     {needs?.state === 'checking' && <Notice type="busy">Es wird geprüft, was diese App braucht. Dafür wird sie heruntergeladen, das kann einige Minuten dauern.</Notice>}
     {needs?.state === 'failed' && <Notice>Die Anforderungen konnten nicht geprüft werden. Du kannst sie unten selbst eintragen. {needs.message}</Notice>}
-    {needs?.state === 'ready' && <Notice>{needs.recipe ? needs.recipe.note
+    {needs?.state === 'ready' && (!imported || needs.recipe) && <Notice>{needs.recipe ? needs.recipe.note
       : needs.volumes.length ? 'Das Image nennt eigene Datenordner. Sie sind unten schon als Volumes eingetragen.'
       : 'Das Image nennt keine Datenordner oder Einstellungen. Schau in die Anleitung der App: Ohne Volume gehen ihre Daten beim Entfernen verloren.'}</Notice>}
     <VolumeFields rows={volumeRows} onChange={setVolumeRows} disabled={busy} open={volumeRows.length > 0} />

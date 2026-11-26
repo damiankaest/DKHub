@@ -149,7 +149,7 @@ DKDirector ist ein eigener Prozess im Verzeichnis `director/`. Er steuert nur Co
 
 Für die erste Version sind nur einfache einzelne Web-Container vorgesehen. Volumes, Datenbanken, Konfigurationsvariablen, automatische Updates und der Upload eigener Image-Dateien sind noch nicht enthalten. Ohne Volume können Daten beim Entfernen des Containers verloren gehen. Nur Images installieren, denen du vertraust: Container können Netzwerkzugriff und weitreichende Auswirkungen haben.
 
-Nach der Auswahl prüft DKHub, was die App braucht: im Image deklarierte Datenordner und, für geprüfte Apps (derzeit LiftTrace), eine Vorlage mit Volumes und Umgebungsvariablen. Volumes und Variablen lassen sich vor der Installation ändern und ergänzen. Apps mit einer Datenbank in einem zweiten Container werden noch nicht unterstützt. Die Variablen stehen in der Container-Konfiguration (`docker inspect`), nicht in DKHub-Backups.
+Nach der Auswahl prüft DKHub, was die App braucht: im Image deklarierte Datenordner und, für geprüfte Apps (derzeit LiftTrace), eine Vorlage mit Volumes und Umgebungsvariablen. Volumes und Variablen lassen sich vor der Installation ändern und ergänzen. Alternativ lässt sich unter **Neuer Dienst** die `docker-compose.yml` aus der Anleitung einer App einfügen: DKHub übernimmt Image, Web-Port, Datenordner (als eigene Volumes) und Umgebungsvariablen eines Containers und nennt, was es auslässt. Apps mit einer Datenbank in einem zweiten Container werden noch nicht unterstützt. Die Variablen stehen in der Container-Konfiguration (`docker inspect`), nicht in DKHub-Backups.
 
 ### Linux: optional aktivieren
 

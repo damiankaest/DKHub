@@ -201,6 +201,37 @@ test('adding a service shows what it needs and sends the edited settings', async
   expect(sent.env).toEqual([{key:'JWT_SECRET', value:'eigener-schluessel'}, {key:'INSECURE_COOKIES', value:'1'}, {key:'TZ', value:'Europe/Berlin'}]);
 });
 
+test('a pasted compose file fills the install form on a phone', async ({ page }) => {
+  let sent;
+  await page.setViewportSize({width:360, height:740});
+  await page.route('**/api/auth', route => route.fulfill({ json: { password_required: false } }));
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/install', route => { sent = route.request().postDataJSON(); return route.fulfill({ status:502, json:{detail:'Testende'} }); });
+  await page.goto('/');
+  await page.getByRole('button', {name:'Navigation öffnen'}).click();
+  await page.getByRole('button', {name:'Dienste', exact:true}).click();
+  await page.getByRole('button', {name:'Neuer Dienst'}).click();
+  await page.getByText('Stattdessen docker-compose.yml einfügen').click();
+  const box = page.getByLabel('Inhalt der docker-compose.yml');
+  await box.fill('services: [kaputt');
+  await page.getByRole('button', {name:'Übernehmen'}).click();
+  await expect(page.getByRole('alert')).toContainText('kein gültiges YAML');
+  await box.fill(['services:', '  wiki:', '    image: example/wiki:2.1', '    ports: ["8080:3000"]', '    volumes:', '      - ./data:/srv/wiki', '    environment:',
+    '      SESSION_SECRET: ${SESSION_SECRET}', '      SITE_NAME: Zuhause', '  db:', '    image: postgres:17'].join('\n'));
+  await page.getByRole('button', {name:'Übernehmen'}).click();
+  await page.getByRole('group', {name:'Welcher Container ist die App?'}).getByRole('button', {name:'wiki'}).click();
+  await expect(page.getByRole('heading', {name:'example/wiki installieren'})).toBeVisible();
+  await expect(page.getByText('Die Datei enthält weitere Container (db)', {exact:false})).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await page.getByRole('button', {name:'Installieren und starten'}).click();
+  await expect(page.getByRole('alert')).toContainText('Testende');
+  expect(sent).toMatchObject({ name:'wiki', image:'example/wiki:2.1', port:3000, volumes:[{key:'wiki', target:'/srv/wiki'}] });
+  expect(sent.env[0].key).toBe('SESSION_SECRET');
+  expect(sent.env[0].value).toMatch(/^[0-9a-f]{64}$/);
+  expect(sent.env[1]).toEqual({key:'SITE_NAME', value:'Zuhause'});
+});
+
 test('chat searches the catalog and opens an embedded app', async ({ page }) => {
   const apps = [{id:'demo', route:'demo-app', name:'Wetter', description:'Lokale Wetterkarte', category:'Zuhause', icon:'spark', color:'sage', url:'/demo.html', mode:'embed', label:'Beispiel'}];
   await page.route('**/api/apps', route => route.fulfill({json: apps}));

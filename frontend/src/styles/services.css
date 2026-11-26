@@ -56,6 +56,12 @@
 .port-choices .button[aria-pressed=true] {border-color:var(--paint); background:var(--paint); color:var(--paint-ink)}
 .director-install .service-more > .director-label {margin-top:10px}
 .install-button {min-height:46px}
+.compose-import form {display:grid; gap:10px; justify-items:start}
+.compose-import form label {width:100%}
+.compose-import textarea {font-family:ui-monospace,Consolas,monospace; white-space:pre; overflow-wrap:normal}
+.compose-notes strong {display:block}
+.compose-notes ul {margin:8px 0 0; padding-left:18px; font-size:.88rem; overflow-wrap:anywhere}
+.compose-notes > div {min-width:0}
 
 .service-notice {display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--soft); color:var(--ink)}
 .director-panel .service-notice p {margin:0; color:inherit}
