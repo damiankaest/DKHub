@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { defaultTheme } from '../src/themes/palette.js';
 
 test.beforeEach(async ({page}) => {
+  // Never depend on the auth mode of a Hub that happens to run locally.
+  await page.route('**/api/auth', r=>r.fulfill({json:{password_required:true}}));
   await page.route('**/api/theme', r => r.fulfill({json:defaultTheme}));
   await page.route('**/api/images/*', r => r.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+BrpYAAAAASUVORK5CYII=', 'base64')}));
 });
@@ -85,21 +87,81 @@ test('search and install a service through DKDirector', async ({ page }) => {
   await page.route('**/api/apps', route => route.fulfill({ json: apps }));
   await page.route('**/api/director/search?*', route => route.fulfill({ json: [{name:'nginx', description:'Web server', stars:'10', official:true}] }));
   await page.route('**/api/director/list', route => route.fulfill({ json: [{id:'dkhub-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', name:'nginx', image:'nginx:latest', state:'running', host_port:31231}] }));
+  await page.route('**/api/director/services/*/health?*', route => route.fulfill({ json: {status:'reachable', http_status:200} }));
   await page.route('**/api/director/install', route => {
+    // The first attempt sends no port; the image declares two, so the user picks one.
+    if (!route.request().postDataJSON().port) return route.fulfill({ json: {port_required:true, ports:[80, 443]} });
     expect(route.request().postDataJSON()).toEqual({ name:'nginx', image:'nginx:latest', port:80 });
     apps = [{id:'director-aaaa', route:'nginx', name:'nginx', description:'Docker', category:'Dienste', icon:'globe', color:'sage', url:'http://192.168.1.5:31231', mode:'embed', label:'Docker'}];
-    return route.fulfill({ status:201, json: {name:'nginx', state:'running'} });
+    return route.fulfill({ status:201, json: {id:'dkhub-' + 'a'.repeat(32), name:'nginx', state:'running'} });
   });
   await page.goto('/');
   await page.getByRole('button', {name:'Dienste', exact:true}).click();
   await page.getByLabel('Admin-Passwort').fill('secret');
-  await page.getByLabel('Docker Hub durchsuchen').fill('nginx');
+  await page.getByRole('button', {name:'Neuer Dienst'}).click();
+  await page.getByLabel('Wonach suchst du?').fill('nginx');
   await page.getByRole('button', {name:'Suchen', exact:true}).click();
-  await page.getByRole('button', {name:'Auswählen'}).click();
-  await page.getByRole('button', {name:'Image installieren und starten'}).click();
-  await expect(page.getByText('nginx wurde gestartet und als Kachel hinzugefügt.')).toBeVisible();
+  await page.getByRole('button', {name:'Auswählen: nginx'}).click();
+  await page.getByRole('button', {name:'Installieren und starten'}).click();
+  await page.getByRole('button', {name:'80', exact:true}).click();
+  await page.getByRole('button', {name:'Installieren und starten'}).click();
+  await expect(page.getByText('nginx wurde installiert und in deine Bibliothek gelegt.')).toBeVisible();
+  await expect(page.getByRole('article', {name:'nginx'}).getByRole('status')).toHaveText('Bereit');
   await page.getByRole('button', {name:'Zurück', exact:true}).click();
   await expect(page.getByRole('heading', {name:'nginx'})).toBeVisible();
+});
+
+test('services load by themselves without a password and can be added to the library and configured', async ({ page }) => {
+  const id = 'a'.repeat(32);
+  let apps = [];
+  await page.route('**/api/auth', route => route.fulfill({ json: { password_required: false } }));
+  await page.route('**/api/apps', route => route.fulfill({ json: apps }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [{id:'dkhub-' + id, name:'whoami', image:'whoami:latest', state:'running', host_ip:'192.168.1.5', host_port:25000}] }));
+  await page.route('**/api/director/services/*/health?*', route => route.fulfill({ json: {status:'reachable', http_status:200} }));
+  await page.route('**/api/director/services/*/tile', route => {
+    apps = [{id:'director-' + id, route:'whoami', name:'whoami', description:'Docker', category:'Dienste', icon:'globe', color:'sage', url:'http://192.168.1.5:25000', mode:'embed', label:'Docker'}];
+    return route.fulfill({ json: apps[0] });
+  });
+  await page.goto('/');
+  await page.getByRole('button', {name:'Dienste', exact:true}).click();
+  await page.getByRole('button', {name:'Zur Bibliothek hinzufügen'}).click();
+  await expect(page.getByText('In der Bibliothek', {exact:true})).toBeVisible();
+  await page.getByRole('button', {name:'Konfigurieren'}).click();
+  await expect(page.getByRole('heading', {name:'Anwendung bearbeiten'})).toBeVisible();
+  // A service tile starts with what people actually change.
+  await expect(page.locator('.add-form input').first()).toHaveValue('whoami');
+  await expect(page.locator('.add-form legend').first()).toHaveText('Kachel und Beschreibung');
+  await page.getByRole('button', {name:'Abbrechen'}).click();
+  await expect(page.getByRole('heading', {name:'Dienste verwalten'})).toBeVisible();
+});
+
+test('service cards explain problems, offer one next step and fit a phone', async ({ page }) => {
+  const id = letter => 'dkhub-' + letter.repeat(32);
+  const base = {image:'registry-example/a-very-long-image-name-that-must-wrap:2.14.3', state:'running', host_ip:'192.168.1.5', host_port:25000};
+  let stopped = false;
+  await page.setViewportSize({width:360, height:740});
+  await page.route('**/api/auth', route => route.fulfill({ json: { password_required: false } }));
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [
+    {...base, id:id('a'), name:'Blockiert', port_blocked:true},
+    {...base, id:id('b'), name:'Eine App mit einem ausgesprochen langen Namen', state:stopped ? 'running' : 'exited'},
+  ] }));
+  await page.route('**/api/director/services/*/health?*', route => route.fulfill({ json: {status:'unreachable', http_status:null} }));
+  await page.route('**/api/director/services/*/start', route => route.fulfill({ status:409, json:{detail:'Der feste Port 25000 ist belegt.'} }));
+  await page.goto('/');
+  await page.getByRole('button', {name:'Navigation öffnen'}).click();
+  await page.getByRole('button', {name:'Dienste', exact:true}).click();
+  const blocked = page.getByRole('article', {name:'Blockiert'});
+  await expect(blocked.getByRole('status')).toHaveText('Nicht nutzbar');
+  await expect(blocked.getByRole('button', {name:'Stoppen'})).toBeVisible();
+  const long = page.getByRole('article', {name:/ausgesprochen langen/});
+  await expect(long.getByRole('status')).toHaveText('Gestoppt');
+  await expect(long.getByRole('button', {name:'Erneut prüfen'})).toBeHidden();
+  await long.getByText('Mehr Optionen').click();
+  await expect(long.getByRole('button', {name:'Erneut prüfen'})).toBeVisible();
+  await long.getByRole('button', {name:'Starten'}).click();
+  await expect(page.getByRole('alert')).toHaveText('Der feste Port 25000 ist belegt.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test('chat searches the catalog and opens an embedded app', async ({ page }) => {

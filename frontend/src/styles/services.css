@@ -1,0 +1,82 @@
+/* Service management. Colours come from the theme tokens only. */
+.director-password {margin-bottom:16px}
+.director-views {display:grid; grid-template-columns:1fr 1fr; width:100%; max-width:420px; margin-bottom:22px}
+.director-views button {min-height:42px}
+.director-list-head {display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px}
+.service-grid {display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr)); align-items:start; gap:14px}
+.service-card,.service-box,.service-empty {min-width:0; padding:18px; border:1px solid var(--line); border-radius:var(--r); background:var(--surface)}
+.service-card {display:flex; flex-direction:column; gap:10px}
+.service-card.tone-bad {border-color:var(--danger)}
+.service-card-head {display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
+.service-card-head > div {min-width:0}
+.service-card h3 {margin:0 0 6px; font-size:1.12rem; letter-spacing:-.02em; overflow-wrap:anywhere}
+.service-favorite {width:42px; min-height:42px}
+.service-favorite[aria-pressed=true] {color:var(--accent-ink)}
+.director-panel .service-status {display:inline-flex; align-items:center; gap:7px; margin:0; padding:3px 10px; border:1px solid var(--line); border-radius:99px; color:var(--ink); font-size:.82rem; font-weight:650}
+.service-dot {width:9px; height:9px; flex:none; border-radius:50%; background:var(--muted)}
+.tone-ok .service-dot {background:var(--accent-ink)}
+.tone-ok .service-status {background:var(--soft)}
+.tone-warn .service-status {border-color:var(--highlight)}
+.tone-warn .service-dot {background:var(--highlight)}
+.tone-bad .service-status {border-color:var(--danger); background:var(--danger-bg)!important; color:var(--danger)!important}
+.tone-bad .service-dot {background:var(--danger)}
+.tone-busy .service-dot {background:var(--highlight); animation:service-pulse 1s ease-in-out infinite alternate}
+.director-panel .service-hint {margin:0; color:var(--ink); font-size:.9rem}
+.director-panel .service-library {margin:0; font-size:.83rem}
+.service-actions {display:flex; flex-wrap:wrap; gap:8px}
+.service-actions > .button {flex:1 1 auto; min-height:44px; white-space:normal; text-align:center}
+.service-more {border-top:1px solid var(--line); padding-top:4px}
+.service-more summary {display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; cursor:pointer; list-style:none; color:var(--muted); font-size:.86rem; font-weight:640}
+.service-more summary::-webkit-details-marker {display:none}
+.service-more summary:focus-visible {outline:3px solid var(--accent-ink); outline-offset:2px}
+.service-more[open] summary svg {transform:rotate(180deg)}
+.service-more > * + * {margin-top:10px}
+.service-more dl {display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 12px; margin-bottom:0; font-size:.8rem; color:var(--muted)}
+.service-more dd {margin:0; overflow-wrap:anywhere}
+.service-empty {display:grid; justify-items:center; gap:12px; padding:34px 18px; text-align:center}
+
+.service-box {display:grid; gap:14px; justify-items:stretch}
+.director-panel .service-box > p {margin:0}
+.director-search {display:flex; align-items:flex-end; flex-wrap:wrap; gap:9px}
+.director-search label {flex:1 1 200px}
+.director-search .button {min-height:42px}
+.director-results {margin:0; padding:0; list-style:none}
+.director-result {display:flex; justify-content:space-between; align-items:center; gap:12px; padding-block:12px; border-top:1px solid var(--line)}
+.director-result > div {min-width:0; overflow-wrap:anywhere}
+.director-result p {font-size:.84rem}
+.official {display:inline-block; margin-inline-start:8px; padding:0 8px; border-radius:99px; background:var(--soft); color:var(--accent-ink); font-size:.74rem; font-weight:700}
+.director-label small {color:var(--muted); font-weight:450}
+.back-link {justify-self:start; margin-inline-start:-10px}
+.service-box h2:focus,.director-port p:focus {outline:none}
+.director-port {display:grid; gap:10px; min-width:0; margin:0; padding:12px 14px 16px; border:2px solid var(--highlight); border-radius:var(--r-sm)}
+.director-port legend {padding:0 6px; font-weight:700}
+.director-panel .director-port p {margin:0; color:var(--ink)}
+.port-choices {display:flex; flex-wrap:wrap; gap:8px}
+.port-choices .button {min-width:76px; min-height:44px}
+.port-choices .button[aria-pressed=true] {border-color:var(--paint); background:var(--paint); color:var(--paint-ink)}
+.director-install .service-more > .director-label {margin-top:10px}
+.install-button {min-height:46px}
+
+.service-notice {display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--soft); color:var(--ink)}
+.director-panel .service-notice p {margin:0; color:inherit}
+.service-notice svg,.spinner {margin-top:3px}
+.service-notice.success {border-color:var(--accent-ink)}
+.service-notice.error {border-color:var(--danger); background:var(--danger-bg); color:var(--danger)}
+.service-box .service-notice {margin:0}
+.spinner {width:16px; height:16px; flex:none; border:2px solid var(--control-line); border-top-color:var(--accent-ink); border-radius:50%; animation:service-spin .8s linear infinite}
+@keyframes service-spin {to {transform:rotate(360deg)}}
+@keyframes service-pulse {to {opacity:.35}}
+
+/* Tile settings: keep saving within reach on phones. */
+@media(max-width:740px) {
+  .add-panel .form-actions {position:sticky; bottom:0; z-index:2; margin-inline:-6px; padding:10px 6px; border-top:1px solid var(--line); background:var(--surface)}
+  .add-panel .form-actions .button {flex:1 1 140px; white-space:normal}
+}
+
+@media(max-width:520px) {
+  .service-card,.service-box {padding:15px}
+  .director-search .button {flex:1 1 100%}
+  .director-result {flex-wrap:wrap}
+  .director-result .button {flex:1 1 100%}
+  .install-button {width:100%}
+}

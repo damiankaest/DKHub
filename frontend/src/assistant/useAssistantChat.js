@@ -13,7 +13,7 @@ async function requestAi(message,thread,password,signal) {
   return res.json();
 }
 
-export function useAssistantChat({call,visible,onNavigate}) {
+export function useAssistantChat({call,authRequired,visible,onNavigate}) {
   const [mode,setMode]=useState('local');
   const [threads,setThreads]=useState({local:[],ai:[]});
   const [input,setInput]=useState('');
@@ -42,7 +42,7 @@ export function useAssistantChat({call,visible,onNavigate}) {
     cancel(false); setThreads(old=>({...old,[mode]:[]}));setInput('');
   }
   async function run(prompt,app) {
-    if (!prompt || pending.current || (!app && mode==='ai' && !password)) return;
+    if (!prompt || pending.current || (!app && authRequired && mode==='ai' && !password)) return;
     const key=mode;
     const controller=new AbortController();
     const signal=controller.signal;

@@ -16,11 +16,11 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from admin_auth import authorize
+from admin_auth import authorize, password_required
 from themes import router as themes_router
 from chat_ai import ChatRequest, respond
 import settings
@@ -90,6 +90,11 @@ def save_catalog(entries: list[AppEntry]) -> None:
 
 app = FastAPI(title="DKHub API", docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(themes_router)
+
+
+@app.get("/api/auth")
+def auth_mode():
+    return {"password_required": password_required()}
 
 
 @app.get("/api/apps", response_model=list[AppEntry])
@@ -266,13 +271,19 @@ def remove_app(app_id: str, request: Request, admin_password: str = Header(defau
 class DirectorRequest(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     image: str = Field(min_length=3, max_length=200)
-    port: int = Field(ge=1, le=65535)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    volumes: list[dict[str, str]] = Field(default_factory=list, max_length=16)
+
+
+class DirectorRestoreRequest(BaseModel):
+    plan_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    confirmation: str = Field(pattern=r"^RESTORE$")
 
 
 def director_request(path: str, method: str = "GET", payload: dict | None = None) -> dict | list:
     token = os.environ.get("DKDIRECTOR_TOKEN", "")
     if not token:
-        raise HTTPException(503, "DKDirector is not enabled")
+        raise HTTPException(503, "DKDirector ist nicht aktiviert.")
     port = os.environ.get("DKDIRECTOR_PORT", "8765")
     if not port.isdigit() or not 1 <= int(port) <= 65535:
         raise HTTPException(503, "Invalid DKDirector port")
@@ -280,13 +291,23 @@ def director_request(path: str, method: str = "GET", payload: dict | None = None
     req = URLRequest(f"http://127.0.0.1:{port}{path}", data=data, method=method,
                      headers={"X-Director-Token": token, "Content-Type": "application/json"})
     try:
-        with urlopen(req, timeout=320 if method == "POST" else 40) as response:
+        timeout = 7200 if method == "POST" and "/backups" in path else (320 if method == "POST" else 40)
+        with urlopen(req, timeout=timeout) as response:
             return json.load(response)
     except HTTPError as exc:
         status = exc.code if exc.code in {404, 409, 422, 503} else 502
-        raise HTTPException(status, "DKDirector request failed; check the service before retrying") from exc
+        try:
+            detail = json.load(exc)["detail"]
+        except (OSError, ValueError, KeyError, TypeError):
+            detail = None
+        if exc.code == 422 and isinstance(detail, list):
+            detail = "; ".join(str(item["msg"]) for item in detail
+                               if isinstance(item, dict) and "msg" in item)
+        if not isinstance(detail, str) or not detail:
+            detail = "DKDirector konnte die Anfrage nicht ausführen. Prüfe den Dienstzustand."
+        raise HTTPException(status, detail) from exc
     except (URLError, OSError, ValueError) as exc:
-        raise HTTPException(503, "DKDirector unavailable; check service state before retrying") from exc
+        raise HTTPException(503, "DKDirector ist nicht erreichbar. Prüfe den Dienstzustand, bevor du es erneut versuchst.") from exc
 
 
 @app.post("/api/director/search")
@@ -301,9 +322,7 @@ def director_list(request: Request, admin_password: str = Header(default="", ali
     return director_request("/services")
 
 
-@app.post("/api/director/install", status_code=201)
-def director_install(payload: DirectorRequest, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
-    authorize(request, admin_password)
+def director_host() -> str:
     # An explicit address avoids publishing on all interfaces and creating localhost links for other devices.
     import ipaddress
     host = os.environ.get("DKDIRECTOR_BIND_IP", "")
@@ -312,27 +331,122 @@ def director_install(payload: DirectorRequest, request: Request, admin_password:
         if ip.version != 4 or ip.is_unspecified or ip.is_multicast:
             raise ValueError()
     except ValueError as exc:
-        raise HTTPException(503, "Set DKDIRECTOR_BIND_IP to the server's explicit IPv4 address") from exc
+        raise HTTPException(503, "DKDIRECTOR_BIND_IP muss die IPv4-Adresse dieses Rechners sein.") from exc
+    return host
+
+
+def save_service_tile(service_id: str, name: str, image: str, url: str) -> AppEntry:
+    """Create the library tile of a service, or point an existing one at its current address."""
+    if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id):
+        raise ValueError("Invalid service ID")
+    app_id = "director-" + service_id[6:]
+    with CATALOG_LOCK:
+        entries = list_apps()
+        old = next((item for item in entries if item.id == app_id), None)
+        if old:
+            # Keep everything the user configured, including a path or query in the URL.
+            previous = urlsplit(old.url)
+            scheme = previous.scheme if previous.scheme in {"http", "https"} else "http"
+            address = previous._replace(scheme=scheme, netloc=urlsplit(url).netloc).geturl()
+            tile = AppEntry.model_validate({**old.model_dump(), "url": address})
+            save_catalog([tile if item.id == app_id else item for item in entries])
+            return tile
+        route = route_from_name(name)
+        if route in ({item.route for item in entries} | RESERVED):
+            route = f"{route[:46]}-{service_id[6:14]}"
+        tile = AppEntry(id=app_id, route=route, name=name.strip(),
+            description=f"Docker: {image}"[:300], category="Dienste", icon="globe", color="sage",
+            url=url, mode="embed", label="Docker")
+        save_catalog([*entries, tile])
+        return tile
+
+
+@app.post("/api/director/install", status_code=201)
+def director_install(payload: DirectorRequest, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    host = director_host()
     result = director_request("/services", "POST", payload.model_dump())
+    if isinstance(result, dict) and result.get("port_required"):
+        return JSONResponse({"port_required": True, "ports": result.get("ports", [])})
     if not isinstance(result, dict) or not result.get("host_port") or result.get("host_ip") != host:
         raise HTTPException(502, "Service may exist but has no verified port; check DKDirector before retrying")
     try:
-        with CATALOG_LOCK:
-            entries = list_apps()
-            service_id = result["id"]
-            if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id):
-                raise ValueError("Invalid service ID")
-            app_id = "director-" + service_id[6:]
-            route = route_from_name(payload.name)
-            if route in ({item.route for item in entries} | RESERVED):
-                route = f"{route[:46]}-{service_id[6:14]}"
-            new = AppEntry(id=app_id, route=route, name=payload.name.strip(),
-                description=f"Docker: {payload.image}", category="Dienste", icon="globe", color="sage",
-                url=f"http://{host}:{int(result['host_port'])}", mode="embed", label="Docker")
-            save_catalog([*entries, new])
+        save_service_tile(result["id"], payload.name, payload.image, f"http://{host}:{int(result['host_port'])}")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(500, "Service may be running but its tile could not be saved; check DKDirector") from exc
     return result
+
+
+@app.post("/api/director/services/{service_id}/tile", response_model=AppEntry)
+def director_tile(service_id: str, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    host = director_host()
+    services = director_request("/services")
+    service = next((item for item in services if item.get("id") == service_id), None)
+    if service is None:
+        raise HTTPException(404, "Service not found")
+    if not service.get("host_port") or service.get("host_ip") != host:
+        raise HTTPException(409, "Start the service first; it has no address on this server")
+    try:
+        return save_service_tile(service_id, service["name"], service["image"], f"http://{host}:{int(service['host_port'])}")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(500, "The tile could not be saved") from exc
+
+
+def sync_tile(service: dict) -> None:
+    """After a start, keep a tile that points at this server in step with Docker's actual port."""
+    host = os.environ.get("DKDIRECTOR_BIND_IP", "")
+    try:
+        app_id = "director-" + service["id"][6:]
+        tile = next((item for item in list_apps() if item.id == app_id), None)
+        if tile and service.get("host_port") and service.get("host_ip") == host and urlsplit(tile.url).hostname == host:
+            save_service_tile(service["id"], tile.name, service.get("image", ""), f"http://{host}:{int(service['host_port'])}")
+    except (OSError, ValueError, KeyError, TypeError):
+        pass  # The service list still offers to update an outdated address.
+
+
+@app.post("/api/director/services/{service_id}/health")
+def director_health(service_id: str, request: Request, wait: int = 0, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id) or not 0 <= wait <= 30:
+        raise HTTPException(404, "Service not found")
+    return director_request(f"/services/{service_id}/health?wait={wait}")
+
+
+def director_backup_path(service_id: str, backup_id: str | None = None) -> str:
+    if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id):
+        raise HTTPException(404, "Service not found")
+    path = f"/services/{service_id}/backups"
+    if backup_id is not None:
+        if not re.fullmatch(r"[a-f0-9]{32}", backup_id):
+            raise HTTPException(404, "Backup not found")
+        path += f"/{backup_id}"
+    return path
+
+
+@app.post("/api/director/services/{service_id}/backups/list")
+def director_backups(service_id: str, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return director_request(director_backup_path(service_id))
+
+
+@app.post("/api/director/services/{service_id}/backups", status_code=201)
+def director_create_backup(service_id: str, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return director_request(director_backup_path(service_id), "POST")
+
+
+@app.post("/api/director/services/{service_id}/backups/{backup_id}/restore/preview")
+def director_restore_preview(service_id: str, backup_id: str, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return director_request(director_backup_path(service_id, backup_id) + "/restore/preview", "POST")
+
+
+@app.post("/api/director/services/{service_id}/backups/{backup_id}/restore")
+def director_restore(service_id: str, backup_id: str, payload: DirectorRestoreRequest, request: Request,
+                     admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return director_request(director_backup_path(service_id, backup_id) + "/restore", "POST", payload.model_dump())
 
 
 @app.post("/api/director/services/{service_id}/{action}")
@@ -340,7 +454,10 @@ def director_action(service_id: str, action: str, request: Request, admin_passwo
     authorize(request, admin_password)
     if not re.fullmatch(r"dkhub-[a-f0-9]{32}", service_id) or action not in {"start", "stop"}:
         raise HTTPException(404, "Service not found")
-    return director_request(f"/services/{service_id}/{action}", "POST", {})
+    result = director_request(f"/services/{service_id}/{action}", "POST", {})
+    if action == "start" and isinstance(result, dict):
+        sync_tile(result)
+    return result
 
 
 class SettingsUpdate(BaseModel):

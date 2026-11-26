@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { addApp, updateApp } from './api';
+import { useAuthRequired } from './auth';
 
 export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
   const [error, setError] = useState('');
@@ -12,6 +13,8 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
   const [manifest, setManifest] = useState(existing?.manifest || '');
   const [analysisMessage, setAnalysisMessage] = useState('');
   const [previewError, setPreviewError] = useState('');
+  const authRequired = useAuthRequired();
+  const service = existing?.id.startsWith('director-');
   function testPreview() {
     const value = url.trim();
     try {
@@ -24,7 +27,7 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
   async function analyze(event) {
     const form = event.currentTarget.form;
     const fields = new FormData(form);
-    if (!fields.get('password')) { form.elements.password.focus(); form.elements.password.reportValidity(); return; }
+    if (authRequired && !fields.get('password')) { form.elements.password.focus(); form.elements.password.reportValidity(); return; }
     setBusy('analyze'); setAnalysisMessage('');
     try {
       const response = await fetch('/api/admin/analyze', {method:'POST', headers:{'Content-Type':'application/json', 'X-DKHub-Admin':fields.get('password')}, body:JSON.stringify({url:url.trim(), name:fields.get('name') || ''})});
@@ -53,30 +56,38 @@ export function AddApp({ app: existing, categories = [], onAdded, onCancel }) {
       setError(err.message || 'Verbindung zum Backend fehlgeschlagen.');
     } finally { setBusy(''); }
   }
+  const nameField = <label>Name<input name="name" defaultValue={existing?.name || ""} required maxLength="100" placeholder="z. B. Teamgeist" /></label>;
+  const addressFields = (
+    <fieldset><legend>Adresse und Start</legend>
+        {!service && nameField}
+        <label>Webadresse<input name="url" type="text" value={url} onChange={event => { setUrl(event.target.value); setPreview(''); setPreviewError(''); }} required maxLength="2048" placeholder="http://192.168.1.10:3000" /></label>
+        <label>Öffnen<select name="mode" defaultValue={existing?.mode || "external"}><option value="external">In einem neuen Tab</option><option value="embed">Im DKHub einbetten</option></select></label>
+        <label>DKHub-Pfad <span>(optional, z. B. weather)</span><input name="route" defaultValue={existing?.route || ""} pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength="80" placeholder="Automatisch aus dem Namen" /></label>
+        <div className="embed-test"><button className="button secondary" type="button" onClick={testPreview}>Einbettung testen</button><p>Prüfe die Vorschau: Ist die Seite sichtbar, kannst du sie einbetten. Manche Anbieter blockieren dies oder verlangen eine Anmeldung.</p>
+          {previewError && <p className="form-error" role="alert">{previewError}</p>}
+          {preview && <div className="embed-test-frame"><iframe title="Einbettungsvorschau" src={preview} referrerPolicy="no-referrer" /></div>}
+        </div>
+        </fieldset>
+  );
+  // For a service the look of the tile comes first; DKHub manages its address.
+  const tileFields = (
+    <fieldset><legend>Kachel und Beschreibung</legend>
+        {service && nameField}
+        <label>Kategorie<input name="category" list="app-categories" defaultValue={existing?.category || 'Meine Apps'} maxLength="80" placeholder="z. B. Fitness" /></label>
+        <datalist id="app-categories">{categories.map(category => <option key={category} value={category} />)}</datalist>
+        <label>Kachelbild <span>(optional, PNG/JPEG/WebP bis 2 MB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
+        {image && !file && <div><img className="form-image" src={image} alt="Aktuelles Kachelbild" /><button type="button" className="button secondary" onClick={() => setImage('')}>Bild entfernen</button></div>}
+        <label>Beschreibung <span>(optional)</span><input name="description" value={description} onChange={e => setDescription(e.target.value)} maxLength="300" placeholder="Worum geht es?" /></label>
+        <label>Ausführliche Beschreibung für die Suche <span>(optional)</span><textarea value={manifest} onChange={e => setManifest(e.target.value)} maxLength="3000" rows="5" /></label>
+        <div className="embed-test"><p>Die Analyse lädt die Seite vom Server und sendet lesbare Inhalte an OpenAI. Kosten können entstehen. Nur Seiten analysieren, deren Inhalte du teilen möchtest.</p><button type="button" className="button secondary" onClick={analyze} disabled={busy || !url}>{busy === 'analyze' ? 'Analysiert …' : 'Mit KI beschreiben'}</button>{analysisMessage && <p role="status">{analysisMessage}</p>}</div>
+        </fieldset>
+  );
   return <section className="add-panel" aria-labelledby="add-title">
     <div className="eyebrow">{existing ? "KACHEL BEARBEITEN" : "NEUE KACHEL"}</div><h2 id="add-title">{existing ? "Anwendung bearbeiten" : "Anwendung hinzufügen"}</h2>
-    <p>Trage die Adresse einer bereits erreichbaren Webseite ein.</p>
+    <p>{service ? 'Name, Bild und Kategorie kannst du frei wählen. Die Adresse hat DKHub schon eingetragen.' : 'Trage die Adresse einer bereits erreichbaren Webseite ein.'}</p>
     <form onSubmit={submit} className="add-form">
-      <fieldset><legend>Adresse und Start</legend>
-      <label>Name<input name="name" defaultValue={existing?.name || ""} required maxLength="100" placeholder="z. B. Teamgeist" /></label>
-      <label>Webadresse<input name="url" type="text" value={url} onChange={event => { setUrl(event.target.value); setPreview(''); setPreviewError(''); }} required maxLength="2048" placeholder="http://192.168.1.10:3000" /></label>
-      <label>Öffnen<select name="mode" defaultValue={existing?.mode || "external"}><option value="external">In einem neuen Tab</option><option value="embed">Im DKHub einbetten</option></select></label>
-      <label>DKHub-Pfad <span>(optional, z. B. weather)</span><input name="route" defaultValue={existing?.route || ""} pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength="80" placeholder="Automatisch aus dem Namen" /></label>
-      <div className="embed-test"><button className="button secondary" type="button" onClick={testPreview}>Einbettung testen</button><p>Prüfe die Vorschau: Ist die Seite sichtbar, kannst du sie einbetten. Manche Anbieter blockieren dies oder verlangen eine Anmeldung.</p>
-        {previewError && <p className="form-error" role="alert">{previewError}</p>}
-        {preview && <div className="embed-test-frame"><iframe title="Einbettungsvorschau" src={preview} referrerPolicy="no-referrer" /></div>}
-      </div>
-      </fieldset>
-      <fieldset><legend>Kachel und Beschreibung</legend>
-      <label>Kategorie<input name="category" list="app-categories" defaultValue={existing?.category || 'Meine Apps'} maxLength="80" placeholder="z. B. Fitness" /></label>
-      <datalist id="app-categories">{categories.map(category => <option key={category} value={category} />)}</datalist>
-      <label>Kachelbild <span>(optional, PNG/JPEG/WebP bis 2 MB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
-      {image && !file && <div><img className="form-image" src={image} alt="Aktuelles Kachelbild" /><button type="button" className="button secondary" onClick={() => setImage('')}>Bild entfernen</button></div>}
-      <label>Beschreibung <span>(optional)</span><input name="description" value={description} onChange={e => setDescription(e.target.value)} maxLength="300" placeholder="Worum geht es?" /></label>
-      <label>Ausführliche Beschreibung für die Suche <span>(optional)</span><textarea value={manifest} onChange={e => setManifest(e.target.value)} maxLength="3000" rows="5" /></label>
-      <div className="embed-test"><p>Die Analyse lädt die Seite vom Server und sendet lesbare Inhalte an OpenAI. Kosten können entstehen. Nur Seiten analysieren, deren Inhalte du teilen möchtest.</p><button type="button" className="button secondary" onClick={analyze} disabled={busy || !url}>{busy === 'analyze' ? 'Analysiert …' : 'Mit KI beschreiben'}</button>{analysisMessage && <p role="status">{analysisMessage}</p>}</div>
-      </fieldset>
-      <label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>
+      {service ? <>{tileFields}{addressFields}</> : <>{addressFields}{tileFields}</>}
+      {authRequired && <label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="form-actions"><button className="button primary" disabled={busy}>{busy === 'save' ? 'Speichert …' : 'Anwendung speichern'}</button><button className="button secondary" type="button" onClick={onCancel} disabled={busy}>Abbrechen</button></div>
     </form>

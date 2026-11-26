@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -19,7 +20,9 @@ def test_settings_access_and_secret_persistence(tmp_path, monkeypatch):
     assert response.json()['openai_configured'] is True
     assert 'secret' not in response.text
     assert settings.config()['openai_key'] == 'secret'
-    assert settings.SETTINGS.stat().st_mode & 0o077 == 0
+    # Windows stat mode bits do not represent NTFS access controls.
+    if os.name == "posix":
+        assert settings.SETTINGS.stat().st_mode & 0o077 == 0
     response = client.post('/api/admin/settings', headers=headers, json={'openai_key':''})
     assert not response.json()['openai_configured']
 

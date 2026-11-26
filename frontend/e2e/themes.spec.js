@@ -11,6 +11,7 @@ const generated = {name:'Listening-Bar',mode:'dark',accent:'#138F83',highlight:'
 
 async function mockHub(context, ai=false) {
   const db = {active:'light', themes:[...presets], drafts:0};
+  await context.route('**/api/auth', r=>r.fulfill({json:{password_required:true}}));
   await context.route('**/api/apps', r=>r.fulfill({json:[music,training]}));
   await context.route('**/api/theme', r=>r.fulfill({json:db.themes.find(t=>t.id===db.active)}));
   await context.route('**/api/admin/settings/read', r=>r.fulfill({json:{enabled:ai,openai_configured:ai,typesafe_configured:false,openai_model:'test',jev_model:'test'}}));

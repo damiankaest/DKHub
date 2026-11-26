@@ -56,6 +56,20 @@ def test_add_app_requires_password_and_same_origin_and_persists(tmp_path, monkey
     assert json.loads(catalog.read_text())[-1]["mode"] == "embed"
 
 
+def test_no_auth_mode_keeps_origin_and_host_checks(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "CATALOG", tmp_path / "apps.json")
+    monkeypatch.delenv("DKHUB_ADMIN_PASSWORD", raising=False)
+    monkeypatch.setenv("DKHUB_NO_AUTH", "1")
+    payload = {"name": "Offen", "url": "https://example.com"}
+    lan = TestClient(main.app, base_url="http://192.168.1.10:8000")
+    assert lan.get("/api/auth").json() == {"password_required": False}
+    assert lan.post("/api/apps", json=payload, headers={"Origin": "http://evil.example"}).status_code == 403
+    assert lan.post("/api/apps", json=payload).status_code == 403
+    rebound = TestClient(main.app, base_url="http://evil.example")
+    assert rebound.post("/api/apps", json=payload, headers={"Origin": "http://evil.example"}).status_code == 403
+    assert lan.post("/api/apps", json=payload, headers={"Origin": "http://192.168.1.10:8000"}).status_code == 201
+
+
 def test_add_app_rejects_invalid_url_and_disabled_admin(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "CATALOG", tmp_path / "apps.json")
     monkeypatch.delenv("DKHUB_ADMIN_PASSWORD", raising=False)

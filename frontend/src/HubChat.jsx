@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from './Icon';
+import { useAuthRequired } from './auth';
 import { AssistantMessage, AssistantWelcome } from './assistant/AssistantMessages';
 import { SignalMark } from './assistant/AssistantArt';
 import { useAssistantChat } from './assistant/useAssistantChat';
@@ -8,11 +9,11 @@ const compactQuery='(max-width: 959px)';
 const compact=()=>window.matchMedia(compactQuery).matches;
 const subscribe=cb=>{const media=window.matchMedia(compactQuery);media.addEventListener('change',cb);return ()=>media.removeEventListener('change',cb);};
 
-function AiAccess({password,setPassword}) {
+function AiAccess({password,setPassword,authRequired}) {
   const [expanded,setExpanded]=useState(true);
   return <details className="assistant-access" open={expanded} onToggle={e=>setExpanded(e.currentTarget.open)}>
-        <summary><Icon name="key" size={16}/>KI-Zugang <small>{password?'Eingegeben':'Admin-Passwort erforderlich'}</small></summary>
-        <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" placeholder="Passwort für diesen Hub"/></label>
+        <summary><Icon name="key" size={16}/>KI-Zugang <small>{!authRequired?'Ohne Passwort':password?'Eingegeben':'Admin-Passwort erforderlich'}</small></summary>
+        {authRequired && <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" placeholder="Passwort für diesen Hub"/></label>}
         <p>TypeSafe erhält deine Nachricht. Für Empfehlungen und freie Antworten erhält OpenAI zusätzlich den KI-Verlauf und die App-Beschreibungen. Es können Kosten entstehen.</p>
       </details>;
 }
@@ -24,9 +25,10 @@ export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
   const heading=useRef(null);
   const log=useRef(null);
   const follow=useRef(true);
-  const chat=useAssistantChat({call:tools.call,visible,onNavigate:()=>{if(narrow) onClose(false);}});
+  const authRequired=useAuthRequired();
+  const chat=useAssistantChat({call:tools.call,authRequired,visible,onNavigate:()=>{if(narrow) onClose(false);}});
   const {mode,thread,input,password,busy}=chat;
-  const needsKey=mode==='ai' && !password.trim();
+  const needsKey=authRequired && mode==='ai' && !password.trim();
   useLayoutEffect(()=>{
     if(!visible) return;
     const dialog=sheet.current;
@@ -78,7 +80,7 @@ export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
       <button type="button" aria-pressed={mode==='ai'} onClick={()=>changeMode('ai')}><Icon name="spark" size={16}/>KI-Chat</button>
     </div><span className="assistant-modehint">{mode==='local'?'Ohne Cloud':'Jev + OpenAI'}</span></div>
     <div className="assistant-scroll" ref={log} onScroll={e=>{const el=e.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<44;}}>
-      {mode==='ai' && <AiAccess password={password} setPassword={chat.setPassword}/>}
+      {mode==='ai' && <AiAccess password={password} setPassword={chat.setPassword} authRequired={authRequired}/>}
       {!thread.length && <AssistantWelcome mode={mode} apps={apps} disabled={needsKey||busy} onSend={send}/>}
       <div className="assistant-thread" role="log" aria-live="polite" aria-label="Chatverlauf" aria-relevant="additions">
         {thread.map(m=><AssistantMessage key={m.id} message={m} apps={apps} onPick={app=>{follow.current=true;void chat.pick(app);}} onExternal={onExternal} onRetry={send} disabled={busy}/>)}

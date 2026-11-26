@@ -113,11 +113,13 @@ function App() {
     navigate(app?.route?'/'+app.route:'/',true);
     if(!focus)focusTile(id);
   }
-  function manage(name,app=null,keepAssistant=false) {
-    setPanel({name,app});setChoosing(false);if(!keepAssistant)setChat(false);
+  function manage(name,app=null,keepAssistant=false,back=null) {
+    setPanel({name,app,back});setChoosing(false);if(!keepAssistant)setChat(false);
     if(name!=='edit' && name!=='remove') {setOpenIds([]);setFocusId(null);navigate('/');}
     window.scrollTo(0,0);
   }
+  // Return to the panel that opened a form, such as the service list.
+  function leavePanel() { setPanel(panel?.back?{name:panel.back}:null); }
   function onSave(app) {
     if(section==='edit') {
       setApps(list=>list.map(a=>a.id===app.id?app:a));
@@ -125,7 +127,7 @@ function App() {
     } else {
       setApps(list=>[...list,app]);setStatus('ready');resetFilter();
     }
-    setPanel(null);
+    leavePanel();
   }
   function onRemove(id) {
     setApps(list=>list.filter(a=>a.id!==id));setFavorites(ids=>ids.filter(i=>i!==id));setRecent(ids=>ids.filter(i=>i!==id));
@@ -175,8 +177,8 @@ function App() {
     <main id="content" tabIndex={-1} className={viewer?'main viewer-main':'main'}>
       {section==='admin' && <AdminSettings onClose={()=>setPanel(null)} appearance={appearance}/>}
       {section==='sort' && <ReorderApps apps={apps} onCancel={()=>setPanel(null)} onSaved={ordered=>{setApps(ordered);setPanel(null);resetFilter();}}/>}
-      {section==='director' && <Director onClose={()=>setPanel(null)} onCatalogChanged={async()=>setApps(await getApps())}/>}
-      {(section==='edit'||section==='add') && <AddApp key={panel.app?.id||'new'} app={panel.app} categories={categories} onCancel={()=>setPanel(null)} onAdded={onSave}/>}
+      {section==='director' && <Director apps={apps} favorites={favorites} onFavorite={favorite} onConfigure={app=>manage('edit',app,false,'director')} onOpen={openApp} onClose={()=>setPanel(null)} onCatalogChanged={async()=>setApps(await getApps())}/>}
+      {(section==='edit'||section==='add') && <AddApp key={panel.app?.id||'new'} app={panel.app} categories={categories} onCancel={leavePanel} onAdded={onSave}/>}
       {section==='remove' && <RemoveApp app={panel.app} onCancel={()=>setPanel(null)} onRemoved={onRemove}/>}
       {viewer && (openIds.length>1 || selected.mode==='external') && <div className="viewer-toolbar">{viewerActions}</div>}
       {viewer && selected.mode==='external' && <div className="catalog-state"><Icon name="external"/><h2>{selected.name}</h2><p>Diese Anwendung öffnet in einem eigenen Tab.</p><a className="button primary" href={selected.url} onClick={()=>openApp(selected)} target="_blank" rel="noopener noreferrer">Im neuen Tab öffnen</a></div>}

@@ -1,6 +1,6 @@
 """Offline backup bundles for DKDirector volumes and DKHub host files."""
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import file_digest
 import json
@@ -59,7 +59,7 @@ def config_sources(paths, include_secrets):
 
 
 def create_backup(bundle, *, docker=None, service=None, generation="", paths=None,
-                  include_secrets=False):
+                  include_secrets=False, expected_volumes=None, service_definition=None):
     if service is None and paths is None:
         raise BackupError("Select service volumes, local configuration, or both")
     volumes = []
@@ -69,6 +69,8 @@ def create_backup(bundle, *, docker=None, service=None, generation="", paths=Non
         if not volumes:
             raise BackupError(f"No managed volumes found for {service} and selected generation")
         validate_mounts(volumes)
+        if expected_volumes is not None and set(volumes) != set(expected_volumes):
+            raise BackupError("Docker volumes differ from the stored service definition")
         for volume in volumes:
             docker.require_stopped(volume)
     files = list(config_sources(paths, include_secrets)) if paths is not None else []
@@ -94,8 +96,11 @@ def create_backup(bundle, *, docker=None, service=None, generation="", paths=Non
             entries.append({"kind": kind, "name": name, "sha256": sha256(artifact)})
         with NamedTemporaryFile(mode="w", encoding="utf-8", dir=bundle, delete=False) as temp:
             staged_manifest = Path(temp.name)
-            json.dump({"version": 1, "created_utc": datetime.now(timezone.utc).isoformat(),
-                       "entries": entries}, temp, indent=2)
+            manifest = {"version": 1, "created_utc": datetime.now(timezone.utc).isoformat(),
+                        "entries": entries}
+            if service_definition is not None:
+                manifest["service_definition"] = service_definition
+            json.dump(manifest, temp, indent=2)
         staged_manifest.rename(bundle / MANIFEST)
     except (BackupError, OSError) as exc:
         raise BackupError(f"Backup incomplete at {bundle}: {exc}") from exc
@@ -165,9 +170,20 @@ def restore_file(artifact, target):
             temp.unlink()
 
 
-def restore_backup(bundle, *, paths, approve, docker=None, include_secrets=False):
-    """Show a complete plan via approve(lines) before creating any restore target."""
+@dataclass(frozen=True)
+class RestorePlan:
+    bundle: Path
+    entries: list
+    actions: tuple
+    lines: tuple
+
+
+def prepare_restore(bundle, *, paths, docker=None, include_secrets=False, volume_service=None):
     entries = read_backup(bundle)
+    if volume_service is not None and any(
+            "volume" not in entry or entry["volume"]["service"] != volume_service
+            for entry in entries):
+        raise BackupError("Expected a volume-only backup for this service")
     generation = uuid4().hex
     actions = []
     lines = [f"Backup: {bundle.absolute()}"]
@@ -199,14 +215,23 @@ def restore_backup(bundle, *, paths, approve, docker=None, include_secrets=False
     volumes = [target for _, target in actions if isinstance(target, Volume)]
     if volumes and docker.names().intersection(v.name for v in volumes):
         raise BackupError("A planned restore volume already exists")
-    if not approve(tuple(lines)):
+    return RestorePlan(bundle, entries, tuple(actions), tuple(lines))
+
+
+def execute_restore(plan, *, approve, docker=None):
+    """Execute the exact plan presented to the caller after explicit approval."""
+    if not approve(plan.lines):
         raise BackupError("Restore cancelled before writing")
-    if read_backup(bundle) != entries:
+    if read_backup(plan.bundle) != plan.entries:
         raise BackupError("Backup changed after restore preview")
-    for path in file_targets:
-        check_file_target(path)
+    volumes = [target for _, target in plan.actions if isinstance(target, Volume)]
+    if volumes and docker.names().intersection(v.name for v in volumes):
+        raise BackupError("A planned restore volume already exists")
+    for _, target in plan.actions:
+        if isinstance(target, Path):
+            check_file_target(target)
     completed = []
-    for artifact, target in actions:
+    for artifact, target in plan.actions:
         name = target.name if isinstance(target, Volume) else str(target)
         try:
             if isinstance(target, Volume):
@@ -222,3 +247,8 @@ def restore_backup(bundle, *, paths, approve, docker=None, include_secrets=False
                 "Inspect the failed target for partial data before using it."
             ) from exc
     return completed
+
+
+def restore_backup(bundle, *, paths, approve, docker=None, include_secrets=False):
+    plan = prepare_restore(bundle, paths=paths, docker=docker, include_secrets=include_secrets)
+    return execute_restore(plan, approve=approve, docker=docker)

@@ -1,12 +1,22 @@
 # Startet DKHub unter Windows. Beenden mit Strg+C.
 # Optional: $env:DKHUB_PORT = 8080; $env:DKHUB_PYTHON = "3.12"
-# Mit DKDirector (Docker-Dienste), vorher in derselben Sitzung setzen:
-#   $env:DKHUB_ADMIN_PASSWORD = 'DEIN-PASSWORT'
-#   $env:DKDIRECTOR_BIND_IP   = '192.168.1.50'   # eigene IPv4 des Rechners
-#   $env:DKHUB_ENABLE_DIRECTOR = '1'
+# Einstellungen kommen aus der Datei .env neben diesem Skript (Vorlage: .env.example).
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
+
+# .env vor allen anderen Einstellungen laden.
+$envFile = Join-Path $root '.env'
+if (Test-Path $envFile) {
+    foreach ($line in Get-Content $envFile -Encoding UTF8) {
+        if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') {
+            $name = $Matches[1]
+            $value = $Matches[2] -replace '^(["''])(.*)\1$', '$2'
+            Set-Item -Path "Env:$name" -Value $value
+        }
+    }
+}
+
 $port = if ($env:DKHUB_PORT) { $env:DKHUB_PORT } else { '8000' }
 $pyVersion = if ($env:DKHUB_PYTHON) { $env:DKHUB_PYTHON } else { '3.12' }
 
@@ -59,8 +69,8 @@ try {
 
     if ($enableDirector) {
         if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker fehlt (Docker Desktop starten/installieren).' }
-        if (-not $env:DKHUB_ADMIN_PASSWORD -or -not $env:DKDIRECTOR_BIND_IP) {
-            throw 'Fuer DKDirector bitte $env:DKHUB_ADMIN_PASSWORD und $env:DKDIRECTOR_BIND_IP setzen.'
+        if (($env:DKHUB_NO_AUTH -ne '1' -and -not $env:DKHUB_ADMIN_PASSWORD) -or -not $env:DKDIRECTOR_BIND_IP) {
+            throw 'Fuer DKDirector bitte DKDIRECTOR_BIND_IP und DKHUB_ADMIN_PASSWORD (oder DKHUB_NO_AUTH=1) setzen.'
         }
         $env:DKDIRECTOR_TOKEN = (& $venvPython -c 'import secrets; print(secrets.token_urlsafe(32))').Trim()
         $env:DKDIRECTOR_PORT = if ($env:DKDIRECTOR_PORT) { $env:DKDIRECTOR_PORT } else { '8765' }
@@ -84,7 +94,7 @@ try {
 
     Write-Host "`nDKHub startet auf http://localhost:$port - Beenden mit Strg+C.`n"
     Set-Location (Join-Path $root 'backend')
-    & $venvPython -m uvicorn main:app --host 127.0.0.1 --port $port
+    & $venvPython -m uvicorn main:app --host 0.0.0.0 --port $port
 }
 finally {
     if ($directorProc -and -not $directorProc.HasExited) {

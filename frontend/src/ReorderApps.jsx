@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { reorderApps } from './api';
+import { useAuthRequired } from './auth';
 
 function move(items, id, target) {
   const from = items.findIndex(item => item.id === id);
@@ -14,6 +15,7 @@ export function ReorderApps({ apps, onSaved, onCancel }) {
   const [dragging, setDragging] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const authRequired = useAuthRequired();
   async function save(event) {
     event.preventDefault();
     const password = new FormData(event.currentTarget).get('password');
@@ -29,6 +31,6 @@ export function ReorderApps({ apps, onSaved, onCancel }) {
       <span className="drag-handle" draggable={!busy} onDragStart={event => { setDragging(item.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => setDragging(null)} aria-hidden="true">⠿</span>
       <span className="sort-name">{item.name}</span><span className="sort-controls"><button type="button" disabled={busy || index === 0} aria-label={`${item.name} nach oben`} onClick={() => setItems(current => move(current, item.id, index - 1))}>↑</button><button type="button" disabled={busy || index === items.length - 1} aria-label={`${item.name} nach unten`} onClick={() => setItems(current => move(current, item.id, index + 1))}>↓</button></span>
     </li>)}</ol>
-    <form onSubmit={save} className="sort-form"><label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button primary" disabled={busy}>{busy ? 'Speichert …' : 'Reihenfolge speichern'}</button><button className="button secondary" type="button" onClick={onCancel} disabled={busy}>Abbrechen</button></div></form>
+    <form onSubmit={save} className="sort-form">{authRequired && <label>Admin-Passwort<input name="password" type="password" autoComplete="current-password" required /></label>}{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button primary" disabled={busy}>{busy ? 'Speichert …' : 'Reihenfolge speichern'}</button><button className="button secondary" type="button" onClick={onCancel} disabled={busy}>Abbrechen</button></div></form>
   </section>;
 }

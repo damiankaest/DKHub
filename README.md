@@ -120,15 +120,21 @@ cd frontend && npm ci && npm run build
 cd ../backend && pip install -r requirements.txt pytest httpx && python -m pytest -q tests
 ```
 
+## Einstellungen in `.env` und Betrieb ohne Passwort
+
+Unter Windows liest `start.ps1` die Datei `.env` im Hauptverzeichnis (Vorlage: `.env.example`, nicht in Git). Ihre Werte überschreiben gleichnamige Variablen der Sitzung. Unter Linux die Variablen wie gewohnt exportieren.
+
+`DKHUB_NO_AUTH=1` schaltet die Passwortabfrage auf allen Geräten ab. Jeder im Netzwerk kann dann Kacheln ändern, API-Schlüssel setzen und, falls aktiviert, Docker-Container installieren. Nur in einem vertrauenswürdigen Heimnetz verwenden. Die Herkunftsprüfung bleibt aktiv; Verwaltungsaktionen funktionieren dann nur über IP-Adresse, `localhost` oder den Rechnernamen.
+
 ## DKDirector: einfache Docker-Dienste
 
-DKDirector ist ein eigener Prozess im Verzeichnis `director/`. Er steuert nur Container, die er selbst angelegt und markiert hat. Die Admin-Oberfläche **Dienste** sucht öffentliche Images über Docker Hub, fragt Image-Tag und internen TCP-Port ab und installiert nach deinem Klick einen Container. DKHub erhält danach eine Kachel mit der vom Docker-Host aus erreichbaren Adresse. Start und Stopp sind über die Dienstliste möglich.
+DKDirector ist ein eigener Prozess im Verzeichnis `director/`. Er steuert nur Container, die er selbst angelegt und markiert hat. Die Admin-Oberfläche **Dienste** sucht öffentliche Images über Docker Hub, fragt das Image-Tag ab und installiert nach deinem Klick einen Container. Den internen TCP-Port liest der Director aus den Metadaten des geladenen Images; nennt es keinen oder mehrere, wählst du ihn selbst. Danach prüft er bis zu 30 Sekunden, ob der Dienst per HTTP antwortet. Neue Dienste starten mit Docker wieder (`unless-stopped`), sofern du sie nicht gestoppt hast. DKHub erhält danach eine Kachel mit der vom Docker-Host aus erreichbaren Adresse. Start und Stopp sind über die Dienstliste möglich. Je Dienst lässt sich dort auch die Kachel konfigurieren, als Favorit markieren, aus der Bibliothek entfernen oder wieder hinzufügen. Ohne Passwortabfrage lädt die Liste beim Öffnen automatisch.
 
 Für die erste Version sind nur einfache einzelne Web-Container vorgesehen. Volumes, Datenbanken, Konfigurationsvariablen, automatische Updates und der Upload eigener Image-Dateien sind noch nicht enthalten. Ohne Volume können Daten beim Entfernen des Containers verloren gehen. Nur Images installieren, denen du vertraust: Container können Netzwerkzugriff und weitreichende Auswirkungen haben.
 
 ### Linux: optional aktivieren
 
-Docker Engine und Zugriff auf Docker für den ausführenden Benutzer sind erforderlich. Die **explizite IPv4-Adresse des Servers im Heimnetz** eintragen (kein `0.0.0.0`); darauf werden neue Dienste mit einem automatisch gewählten freien Port erreichbar. Der DKDirector selbst lauscht ausschließlich auf `127.0.0.1:8765`. DKHub und Director laufen hier auf demselben Host.
+Docker Engine und Zugriff auf Docker für den ausführenden Benutzer sind erforderlich. Die **explizite IPv4-Adresse des Servers im Heimnetz** eintragen (kein `0.0.0.0`); darauf werden neue Dienste mit einem automatisch gewählten freien Port (20000–29999) erreichbar. Der Port bleibt dem Dienst auch nach Neustarts fest zugeordnet; die IP-Adresse sollte dafür ebenfalls fest vergeben sein (zum Beispiel im Router). Früher installierte Dienste behalten ihren wechselnden Port, bis sie neu angelegt werden. Der DKDirector selbst lauscht ausschließlich auf `127.0.0.1:8765`. DKHub und Director laufen hier auf demselben Host.
 
 ```bash
 export DKHUB_ADMIN_PASSWORD='DEIN-EIGENES-LANGES-PASSWORT'
@@ -137,7 +143,7 @@ export DKHUB_ENABLE_DIRECTOR=1
 ./start.sh
 ```
 
-Das Startskript erzeugt ein kurzlebiges gemeinsames Token und beendet seinen eigenen Director-Prozess beim Beenden. Ohne die Option bleibt der bisherige Start unverändert. Beispieltest: In **Dienste** nach `traefik/whoami` suchen, Version `v1.10.4`, internen Port `80` angeben und installieren. Docker Hub und der Image-Download benötigen Internet. Falls eine Aktion ausfällt oder ein Timeout auftritt: erst die Dienstliste aktualisieren und Docker auf dem Server prüfen, bevor sie wiederholt wird.
+Das Startskript erzeugt ein kurzlebiges gemeinsames Token und beendet seinen eigenen Director-Prozess beim Beenden. Ohne die Option bleibt der bisherige Start unverändert. Beispieltest: In **Dienste** nach `traefik/whoami` suchen, Version `v1.10.4`, den Port leer lassen und installieren. Docker Hub und der Image-Download benötigen Internet. Falls eine Aktion ausfällt oder ein Timeout auftritt: erst die Dienstliste aktualisieren und Docker auf dem Server prüfen, bevor sie wiederholt wird.
 
 Die gestarteten App-Ports sind auf der gewählten Netzwerkadresse erreichbar. Die App selbst ist für ihre Anmeldung und den Schutz ihrer Daten verantwortlich. Das Admin-Passwort wird bei HTTP unverschlüsselt übertragen; ausschließlich im vertrauenswürdigen Heimnetz testen. Keine Portweiterleitung ins Internet einrichten.
 

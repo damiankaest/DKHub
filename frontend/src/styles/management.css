@@ -1,5 +1,5 @@
 .panel,.add-panel,.sort-panel,.director-panel {width:100%; max-width:880px; margin:0 auto}
-.panel-title,.director-head,.director-services-head,.director-service,.director-result {display:flex; justify-content:space-between; align-items:center; gap:12px}
+.panel-title,.director-head {display:flex; justify-content:space-between; align-items:center; gap:12px}
 .panel-title,.director-head {align-items:flex-start; margin-bottom:22px}
 .panel-title h1,.director-head h1,.eyebrow + h2 {margin-top:5px}
 .eyebrow + h2,.add-panel > h2 {font-size:clamp(1.9rem,3vw,2.6rem); font-weight:710; letter-spacing:-.05em}
@@ -9,7 +9,7 @@
 .login-panel {max-width:580px}
 .login-emblem {display:grid; place-items:center; width:52px; height:52px; margin:26px 0 14px; background:var(--soft); border:1px solid var(--line); border-radius:var(--r); color:var(--accent-ink)}
 .add-form,.sort-form,.brief-form,.recipe-form {display:grid; gap:15px; margin-top:18px}
-.add-form,.sort-form,.director-install,.director-services,.director-results,.status-box {padding:clamp(16px,2.5vw,26px); border:1px solid var(--line); background:var(--surface); border-radius:var(--r)}
+.add-form,.sort-form,.status-box {padding:clamp(16px,2.5vw,26px); border:1px solid var(--line); background:var(--surface); border-radius:var(--r)}
 .add-form > .button,.sort-form > .button,.recipe-form fieldset > .button {justify-self:start}
 .add-form label,.sort-form label,.director-label,.brief-form label,.recipe-form label,.url-bar label {display:grid; gap:5px; color:var(--ink); font-weight:610; font-size:.88rem; min-width:0}
 :is(.add-form,.sort-form,.director-panel,.brief-form,.recipe-form,.url-bar) :is(input:not([type=checkbox]):not([type=color]),select,textarea) {width:100%; min-width:0; min-height:42px; border:1px solid var(--control-line); border-radius:var(--r-sm); padding:8px 10px; color:var(--ink); background:var(--surface); font-weight:450}
@@ -19,15 +19,15 @@ input::placeholder,textarea::placeholder {color:var(--muted); opacity:1}
 :where(.add-form,.recipe-form) legend {padding:0 6px; color:var(--accent-ink); font-weight:690; font-size:.87rem}
 :is(.add-form,.recipe-form) .check-line {display:flex; align-items:center; gap:10px; width:fit-content; min-height:36px}
 input[type=checkbox] {accent-color:var(--paint); width:18px; height:18px; flex:none}
-.form-actions,.director-search,.director-fields,.field-pair {display:flex; align-items:center; flex-wrap:wrap; gap:9px}
-.field-pair > label,.director-fields > label {flex:1 1 140px}
+.form-actions,.field-pair {display:flex; align-items:center; flex-wrap:wrap; gap:9px}
+.field-pair > label {flex:1 1 140px}
 .embed-test {padding:12px 14px; border-inline-start:3px solid var(--control-line); background:var(--bg); border-radius:var(--r-sm)}
 .embed-test p,.brief-form small {color:var(--muted); font-size:.85rem; line-height:1.45}
 .embed-test p:not(:first-child),.embed-test .button:not(:first-child) {margin-top:7px}
 .embed-test-frame {margin-top:10px; overflow:hidden; border:1px solid var(--line); border-radius:var(--r-sm)}
 .embed-test-frame iframe {width:100%; display:block; height:240px; border:0; background:white}
 .form-image {display:block; max-width:min(200px,100%); max-height:110px; border-radius:var(--r-sm); margin-bottom:6px}
-.feedback,.form-error,.director-message {padding:10px 13px; background:var(--soft); color:var(--accent-ink); border-radius:var(--r-sm); margin-block:10px; overflow-wrap:anywhere}
+.feedback,.form-error {padding:10px 13px; background:var(--soft); color:var(--accent-ink); border-radius:var(--r-sm); margin-block:10px; overflow-wrap:anywhere}
 .feedback.error,.form-error {background:var(--danger-bg); color:var(--danger)}
 .sort-list {margin:18px 0; list-style:none; display:grid; padding:0; gap:6px}
 .sort-row {display:flex; align-items:center; gap:10px; min-height:50px; padding:4px 9px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm)}
@@ -36,14 +36,6 @@ input[type=checkbox] {accent-color:var(--paint); width:18px; height:18px; flex:n
 .sort-name {flex:1; overflow-wrap:anywhere}
 .sort-controls {display:flex; gap:4px}
 .sort-controls button {min-height:35px; min-width:35px; background:var(--soft); color:var(--ink); border-radius:var(--r-sm)}
-.director-search {align-items:flex-end; margin:14px 0}
-.director-search label {flex:1 1 160px}
-.director-services,.director-install,.director-results {margin-top:18px}
-.director-result,.director-service {border-bottom:1px solid var(--line); padding-block:12px}
-.director-result:last-child,.director-service:last-child {border:0}
-.director-result p,.director-service p {font-size:.84rem}
-.director-result small {color:var(--accent-ink)}
-.director-fields {margin:14px 0; align-items:flex-end}
 @media(max-width:740px) {
   :is(.add-form,.sort-form,.director-panel,.brief-form,.recipe-form) :is(input,textarea,select) {font-size:16px}
 }

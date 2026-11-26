@@ -31,8 +31,8 @@ printf '\nInstalliere Frontend-Abhängigkeiten und baue die Oberfläche …\n'
 (cd "$root/frontend" && npm ci --ignore-scripts --no-audit --no-fund && npm run build)
 if [[ "${DKHUB_ENABLE_DIRECTOR:-0}" == "1" ]]; then
   command -v docker >/dev/null 2>&1 || { echo 'Docker fehlt.' >&2; exit 1; }
-  [[ -n "${DKHUB_ADMIN_PASSWORD:-}" && -n "${DKDIRECTOR_BIND_IP:-}" ]] || {
-    echo 'Für DKDirector bitte DKHUB_ADMIN_PASSWORD und DKDIRECTOR_BIND_IP setzen.' >&2; exit 1;
+  [[ ( "${DKHUB_NO_AUTH:-0}" == "1" || -n "${DKHUB_ADMIN_PASSWORD:-}" ) && -n "${DKDIRECTOR_BIND_IP:-}" ]] || {
+    echo 'Für DKDirector bitte DKDIRECTOR_BIND_IP und DKHUB_ADMIN_PASSWORD (oder DKHUB_NO_AUTH=1) setzen.' >&2; exit 1;
   }
   export DKDIRECTOR_TOKEN="$("$root/backend/.venv/bin/python" -c 'import secrets; print(secrets.token_urlsafe(32))')"
   export DKDIRECTOR_PORT="${DKDIRECTOR_PORT:-8765}"

@@ -6,6 +6,7 @@ const catalog=[
   {id:'music',route:'musik',name:'Musikarchiv',category:'Medien',description:'Deine Plattensammlung',icon:'globe',color:'sage',url:'https://example.com/',mode:'external',label:'Webseite'},
 ];
 export async function mockCatalog({page}) {
+  await page.route('**/api/auth', r=>r.fulfill({json:{password_required:true}}));
   await page.route('**/api/apps',r=>r.fulfill({json:catalog}));
   await page.route('**/api/theme',r=>r.fulfill({json:defaultTheme}));
 }

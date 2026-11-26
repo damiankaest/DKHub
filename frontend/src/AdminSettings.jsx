@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAuthRequired } from './auth';
 import { ThemeStudio } from './themes/ThemeStudio';
 import { Icon } from './Icon';
 
@@ -10,6 +11,8 @@ export function AdminSettings({ onClose, appearance }) {
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState('design');
+  const authRequired = useAuthRequired();
+  useEffect(() => { if (!authRequired) submit('/api/admin/settings/read', {}); }, [authRequired]);
 
   async function submit(path, body, success) {
     setBusy(true); setMessage(null);
@@ -30,10 +33,10 @@ export function AdminSettings({ onClose, appearance }) {
   return <section className={'settings-panel panel ' + (!data ? 'login-panel' : '')} aria-labelledby="admin-title">
     <div className="panel-title"><div><span className="kicker">VERWALTUNG</span><h1 id="admin-title">Einstellungen</h1></div>
       <button className="button quiet" onClick={onClose}>Zurück</button></div>
-    {!data ? <><div className="login-emblem"><Icon name="settings" size={25}/></div><h2>Admin-Zugang</h2><p>Hier gestaltest du den Hub für alle Geräte und verwaltest die KI-Zugänge.</p>
+    {!data ? <><div className="login-emblem"><Icon name="settings" size={25}/></div><h2>{authRequired ? 'Admin-Zugang' : 'Einstellungen laden'}</h2><p>Hier gestaltest du den Hub für alle Geräte und verwaltest die KI-Zugänge.</p>
       <form className="add-form" onSubmit={e=>{e.preventDefault(); submit('/api/admin/settings/read', {});}}>
-        <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label>
-        <button className="button primary" disabled={busy}>{busy ? 'Prüft …' : 'Anmelden'}</button></form></> : <>
+        {authRequired && <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label>}
+        <button className="button primary" disabled={busy}>{busy ? 'Prüft …' : authRequired ? 'Anmelden' : 'Erneut laden'}</button></form></> : <>
       <nav className="segmented settings-pages" aria-label="Einstellungsbereiche">{[['design','Design-Studio','palette'],['ai','KI-Zugänge','spark']].map(([id,label,icon])=>
         <button type="button" key={id} aria-pressed={page === id} disabled={busy} onClick={()=>{setPage(id);setMessage(null);}}><Icon name={icon} size={16}/>{label}</button>)}</nav>
       {page === 'design' ? <ThemeStudio password={password} appearance={appearance} aiReady={data.enabled && data.openai_configured}/> :
