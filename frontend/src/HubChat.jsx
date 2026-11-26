@@ -14,11 +14,11 @@ function AiAccess({password,setPassword,authRequired}) {
   return <details className="assistant-access" open={expanded} onToggle={e=>setExpanded(e.currentTarget.open)}>
         <summary><Icon name="key" size={16}/>KI-Zugang <small>{!authRequired?'Ohne Passwort':password?'Eingegeben':'Admin-Passwort erforderlich'}</small></summary>
         {authRequired && <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" placeholder="Passwort für diesen Hub"/></label>}
-        <p>TypeSafe erhält deine Nachricht. Für Empfehlungen und freie Antworten erhält OpenAI zusätzlich den KI-Verlauf und die App-Beschreibungen. Es können Kosten entstehen.</p>
+        <p>Jev von TypeSafe erhält deine Nachricht und wählt die Hub-Aktion. Nur für Empfehlungen und freie Antworten wird, falls eingerichtet, auch OpenAI verwendet. OpenAI erhält dann den KI-Verlauf und App-Beschreibungen. Es können Kosten entstehen.</p>
       </details>;
 }
 
-export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
+export function HubChat({apps,activeId,context,tools,visible,onClose,onExternal}) {
   const narrow=useSyncExternalStore(subscribe,compact,()=>false);
   const sheet=useRef(null);
   const field=useRef(null);
@@ -26,7 +26,7 @@ export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
   const log=useRef(null);
   const follow=useRef(true);
   const authRequired=useAuthRequired();
-  const chat=useAssistantChat({call:tools.call,authRequired,visible,onNavigate:()=>{if(narrow) onClose(false);}});
+  const chat=useAssistantChat({call:tools.call,authRequired,activeId,visible,onNavigate:()=>{if(narrow) onClose(false);}});
   const {mode,thread,input,password,busy}=chat;
   const needsKey=authRequired && mode==='ai' && !password.trim();
   useLayoutEffect(()=>{
@@ -78,10 +78,10 @@ export function HubChat({apps,context,tools,visible,onClose,onExternal}) {
     <div className="assistant-modebar"><div className="assistant-modes" role="group" aria-label="Antwortmodus">
       <button type="button" aria-pressed={mode==='local'} onClick={()=>changeMode('local')}><Icon name="library" size={15}/>Lokal</button>
       <button type="button" aria-pressed={mode==='ai'} onClick={()=>changeMode('ai')}><Icon name="spark" size={16}/>KI-Chat</button>
-    </div><span className="assistant-modehint">{mode==='local'?'Ohne Cloud':'Jev + OpenAI'}</span></div>
+    </div><span className="assistant-modehint">{mode==='local'?'Ohne Cloud':'Jev · TypeSafe'}</span></div>
     <div className="assistant-scroll" ref={log} onScroll={e=>{const el=e.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<44;}}>
       {mode==='ai' && <AiAccess password={password} setPassword={chat.setPassword} authRequired={authRequired}/>}
-      {!thread.length && <AssistantWelcome mode={mode} apps={apps} disabled={needsKey||busy} onSend={send}/>}
+      {!thread.length && <AssistantWelcome mode={mode} apps={apps} activeId={activeId} disabled={needsKey||busy} onSend={send}/>}
       <div className="assistant-thread" role="log" aria-live="polite" aria-label="Chatverlauf" aria-relevant="additions">
         {thread.map(m=><AssistantMessage key={m.id} message={m} apps={apps} onPick={app=>{follow.current=true;void chat.pick(app);}} onExternal={onExternal} onRetry={send} disabled={busy}/>)}
         {busy && <p className="assistant-thinking"><SignalMark size={17}/>{mode==='ai'?'Der Assistent antwortet …':'Einen Moment …'}</p>}

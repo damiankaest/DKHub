@@ -13,7 +13,7 @@ async function requestAi(message,thread,password,signal) {
   return res.json();
 }
 
-export function useAssistantChat({call,authRequired,visible,onNavigate}) {
+export function useAssistantChat({call,authRequired,visible,onNavigate,activeId}) {
   const [mode,setMode]=useState('local');
   const [threads,setThreads]=useState({local:[],ai:[]});
   const [input,setInput]=useState('');
@@ -52,11 +52,12 @@ export function useAssistantChat({call,authRequired,visible,onNavigate}) {
     try {
       let response;
       if (app) response=await openInChat(app.id,call,signal);
-      else if (key==='local') response=await decideChat(prompt,call,signal);
+      else if (key==='local') response=await decideChat(prompt,call,signal,activeId);
       else {
         const reply=await requestAi(prompt,threads.ai,password,signal);
         if (signal.aborted) return;
-        response=await resolveAiReply(reply,call,signal);
+        response=await resolveAiReply(reply,call,signal,activeId);
+        if (['jev','jev+openai'].includes(reply.engine)) response.engine=reply.engine;
       }
       if (!signal.aborted) {
         append(key,{role:'assistant',...response});

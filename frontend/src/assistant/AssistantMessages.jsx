@@ -2,18 +2,21 @@ import React, { useState } from 'react';
 import { Icon } from '../Icon';
 import { SignalArt, SignalMark } from './AssistantArt';
 
-export function AssistantWelcome({mode,apps,disabled,onSend}) {
+export function AssistantWelcome({mode,apps,activeId,disabled,onSend}) {
+  const active = apps.find(app=>app.id===activeId);
   const first = apps.find(app=>app.mode==='embed') || apps[0];
   const choices = [
     {icon:'grid', label:'Apps entdecken', hint:'Deine Bibliothek durchsuchen', prompt:'Zeige alle Apps'},
     {icon:'star', label:'Meine Favoriten', hint:'Gemerkte Apps anzeigen', prompt:'Zeige meine Favoriten'},
+    {icon:'clock', label:'Zuletzt geöffnet', hint:'Deinen Verlauf anzeigen', prompt:'Zuletzt geöffnet'},
+    active ? {icon:'close',label:'Aktuelle Ansicht schließen',hint:active.name,prompt:'Schließe die aktuelle App'} :
     first ? {icon:'window',label:first.name+' öffnen', hint:first.category, prompt:'Öffne '+first.name} :
       {icon:'plus',label:'Eine App hinzufügen',hint:'Das Formular im Hub öffnen',prompt:'App hinzufügen'},
   ];
   return <div className="assistant-welcome">
     <div className="assistant-signal"><SignalArt/></div>
     <h3>{mode==='local'?'Wohin im Hub?':'Was hast du vor?'}</h3>
-    <p>{mode==='local'?'Finde eine App, öffne sie hier oder rufe deine Favoriten auf.':'Beschreibe, was du machen möchtest. Ich helfe dir, die passende App zu finden.'}</p>
+    <p>{mode==='local'?'Finde eine App, öffne sie hier oder rufe deine Favoriten auf.':'Sag mir, welche App du öffnen, suchen oder schließen möchtest.'}</p>
     <div className="assistant-starters" aria-label="Vorschläge">{choices.map(c=><button key={c.icon} onClick={()=>onSend(c.prompt)} disabled={disabled}>
       <span className="assistant-choice-icon"><Icon name={c.icon} size={17}/></span><span><strong>{c.label}</strong><small>{c.hint}</small></span><Icon name="next" size={15}/>
     </button>)}</div>
@@ -40,7 +43,7 @@ function AppResults({ids,total,apps,onPick,onExternal,disabled}) {
 export function AssistantMessage({message,apps,onPick,onExternal,onRetry,disabled}) {
   const own=message.role==='user';
   return <article className={'assistant-entry '+(own?'from-user':'from-hub')}>
-    <span className="entry-author">{!own && <SignalMark size={16}/>} {own?'Du':'DK-Assistent'}</span>
+    <span className="entry-author">{!own && <SignalMark size={16}/>} {own?'Du':'DK-Assistent'}{message.engine && <small> · {message.engine==='jev'?'Jev':'Jev + OpenAI'}</small>}</span>
     <div className={'entry-body'+(message.error?' entry-error':'')}><p>{message.text}</p>
       {!own && <AppResults ids={message.ids} total={message.total} apps={apps} onPick={onPick} onExternal={onExternal} disabled={disabled}/>}
       {message.retry && <button type="button" className="assistant-more" disabled={disabled} onClick={()=>onRetry(message.retry)}>Erneut versuchen</button>}

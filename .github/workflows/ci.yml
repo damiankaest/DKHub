@@ -74,6 +74,14 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r ../backend/requirements.txt
+      - name: Verify Jev chat against FastAPI and Chromium
+        run: |
+          npm run build
+          npx playwright test -c playwright.control.config.js
       - name: Attach design previews for review
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4

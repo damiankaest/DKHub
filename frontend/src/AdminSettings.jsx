@@ -40,7 +40,7 @@ export function AdminSettings({ onClose, appearance, onStartTour }) {
       <nav className="segmented settings-pages" aria-label="Einstellungsbereiche">{[['design','Design-Studio','palette'],['ai','KI-Zugänge','spark']].map(([id,label,icon])=>
         <button type="button" key={id} aria-pressed={page === id} disabled={busy} onClick={()=>{setPage(id);setMessage(null);}}><Icon name={icon} size={16}/>{label}</button>)}</nav>
       {page === 'design' ? <ThemeStudio password={password} appearance={appearance} aiReady={data.enabled && data.openai_configured}/> :
-        <form className="add-form" onSubmit={save}><div className="section-intro"><h2>KI-Zugänge</h2><p>Schlüssel bleiben auf dem Server. Verwende zum Eingeben localhost oder HTTPS.</p></div>
+        <form className="add-form" onSubmit={save}><div className="section-intro"><h2>KI-Zugänge</h2><p>Für die Chatsteuerung genügt TypeSafe (Jev). OpenAI ist optional für Empfehlungen, freie Antworten und Entwürfe. Schlüssel bleiben auf dem Server; verwende zum Eingeben localhost oder HTTPS.</p></div>
           <label className="check-line"><input type="checkbox" checked={data.enabled} onChange={e=>setData({...data,enabled:e.target.checked})}/>KI aktivieren</label>
           {[['typesafe_key','typesafe_configured','TypeSafe','jev_model','Jev'],['openai_key','openai_configured','OpenAI','openai_model','OpenAI']].map(([key,flag,provider,model,title])=>
             <fieldset key={key}><legend>{provider}</legend><label>{provider} API-Schlüssel ({data[flag] ? 'hinterlegt' : 'nicht hinterlegt'})<input type="password" maxLength={500} value={keys[key]} onChange={e=>setKeys({...keys,[key]:e.target.value})} placeholder="Zum Ändern eingeben" autoComplete="new-password"/></label>
