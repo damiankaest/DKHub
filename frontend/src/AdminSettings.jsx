@@ -4,7 +4,7 @@ import { ThemeStudio } from './themes/ThemeStudio';
 import { Icon } from './Icon';
 
 const emptyKeys = { typesafe_key:'', openai_key:'' };
-export function AdminSettings({ onClose, appearance }) {
+export function AdminSettings({ onClose, appearance, onStartTour }) {
   const [password, setPassword] = useState('');
   const [data, setData] = useState(null);
   const [keys, setKeys] = useState(emptyKeys);
@@ -32,7 +32,7 @@ export function AdminSettings({ onClose, appearance }) {
   }
   return <section className={'settings-panel panel ' + (!data ? 'login-panel' : '')} aria-labelledby="admin-title">
     <div className="panel-title"><div><span className="kicker">VERWALTUNG</span><h1 id="admin-title">Einstellungen</h1></div>
-      <button className="button quiet" onClick={onClose}>Zurück</button></div>
+      <button className="button secondary" onClick={onClose}>Zurück</button></div>
     {!data ? <><div className="login-emblem"><Icon name="settings" size={25}/></div><h2>{authRequired ? 'Admin-Zugang' : 'Einstellungen laden'}</h2><p>Hier gestaltest du den Hub für alle Geräte und verwaltest die KI-Zugänge.</p>
       <form className="add-form" onSubmit={e=>{e.preventDefault(); submit('/api/admin/settings/read', {});}}>
         {authRequired && <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label>}
@@ -48,6 +48,8 @@ export function AdminSettings({ onClose, appearance }) {
               {data[flag] && <button className="button danger-quiet" type="button" disabled={busy} onClick={()=>submit('/api/admin/settings', {[key]:''}, 'Schlüssel entfernt.')}>{provider}-Schlüssel entfernen</button>}</fieldset>)}
           <button className="button primary" disabled={busy}>Einstellungen speichern</button></form>}
     </>}
+    {/* Outside the admin login: the tour is for everyone who uses this browser. */}
+    <div className="tour-restart"><div><h2>Einführung</h2><p>Die kurze Tour durch DKHub noch einmal ansehen.</p></div><button type="button" className="button secondary" onClick={onStartTour}>Tour starten</button></div>
     {message && <p className={'feedback ' + (message.error ? 'error' : '')} role={message.error?'alert':'status'}>{message.text}</p>}
   </section>;
 }

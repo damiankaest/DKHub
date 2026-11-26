@@ -1,0 +1,114 @@
+/* Library and start page: one card size, calm rows, quick and optional motion. */
+:root {--ease:cubic-bezier(.2,.7,.2,1); --quick:.17s; --card-width:clamp(244px,23vw,330px)}
+@keyframes rise {from {opacity:0; transform:translateY(8px)} to {opacity:1; transform:none}}
+@keyframes fade {from {opacity:0} to {opacity:1}}
+@keyframes slide-in {from {transform:translateX(24px); opacity:0} to {transform:none; opacity:1}}
+@keyframes shimmer {from {background-position:100% 0} to {background-position:-100% 0}}
+
+.button,.icon-button,.segmented button,.nav-item,.quick-link {transition:background-color var(--quick),color var(--quick),border-color var(--quick),filter var(--quick),transform var(--quick) var(--ease)}
+.button:active:not(:disabled),.icon-button:active:not(:disabled) {transform:scale(.97)}
+.main > section {animation:rise .2s var(--ease)}
+.catalog:not(.in-app) {animation:fade .18s ease-out}
+.mobile-menu[open],.assistant-dock {animation:slide-in .2s var(--ease)}
+/* The phone sheet fills the screen at once, so only its content fades. */
+.assistant-sheet[open] {animation:fade .16s ease-out}
+.assistant-entry,.options-pop {animation:rise .16s var(--ease)}
+
+/* Spotlight. Its art is always dark, so the text on it stays white in every theme. */
+.spotlight {position:relative; display:grid; align-items:end; min-height:clamp(180px,17vw,230px); margin-top:18px; overflow:hidden; border-radius:var(--r); background:var(--art-base,#0e1c2b); color:#fff; isolation:isolate}
+.spotlight-art {position:absolute; inset:0 0 0 32%; z-index:-2}
+.spotlight-art img,.spotlight-art .theme-art {position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.spotlight::after {content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,var(--art-base,#0e1c2b) 32%,color-mix(in srgb,var(--art-base,#0e1c2b) 74%,transparent) 58%,transparent 88%)}
+.spotlight-body {display:grid; gap:5px; justify-items:start; max-width:min(520px,70%); padding:clamp(18px,2.4vw,28px)}
+.spotlight-reason {font-size:.72rem; font-weight:750; letter-spacing:.12em; text-transform:uppercase; color:var(--art-flare,#e7b363)}
+.spotlight-title {font-size:clamp(1.6rem,3vw,2.4rem); font-weight:740; line-height:1.08; letter-spacing:-.05em; overflow-wrap:anywhere}
+.spotlight-text {color:#dbe6e8; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden}
+.spotlight-actions {display:flex; flex-wrap:wrap; gap:9px; margin-top:9px}
+.spotlight-actions .button {min-height:44px; padding-inline:20px}
+.button.spotlight-open {background:#fff; color:#10222b}
+.button.spotlight-open:hover {background:#e4eeee}
+.button.spotlight-favorite {color:#fff; background:#0e1c2b99; border-color:#ffffff59}
+.button.spotlight-favorite:hover {background:#ffffff33}
+.spotlight .button:focus-visible {outline-color:#fff}
+
+/* Rows: every category uses the full width and the same card size. */
+.cards {grid-template-columns:minmax(0,1fr); gap:30px}
+.category-heading {margin-bottom:10px}
+.category-heading h2 {font-size:clamp(1.18rem,1.7vw,1.45rem)}
+.category-heading .row-rule {background:transparent}
+.category-track {grid-auto-columns:var(--card-width); gap:16px; scroll-padding-inline:4px; padding:8px 4px 16px; margin:-8px -4px -16px; scrollbar-width:none}
+.category-track::-webkit-scrollbar {display:none}
+.category-row.single .category-track {grid-auto-columns:var(--card-width)}
+.carousel-controls .icon-button {width:36px; min-height:36px; border-radius:99px}
+
+/* Cards */
+.card {transition:transform var(--quick) var(--ease),box-shadow var(--quick) var(--ease),border-color var(--quick)}
+.card:not(.card-open):hover,.card:not(.card-open):focus-within {transform:translateY(-4px); border-color:var(--control-line); box-shadow:0 14px 26px #0b1e2630}
+.card-preview {aspect-ratio:16/9; border-bottom:0}
+.card-preview .theme-art,.card-preview .card-image {transition:transform .35s var(--ease)}
+.card:not(.card-open):hover :is(.theme-art,.card-image),.card:not(.card-open):focus-within :is(.theme-art,.card-image) {transform:scale(1.05)}
+.card-monogram {position:absolute; inset:0; display:grid; place-items:center; font-size:2.6rem; font-weight:780; letter-spacing:-.04em; color:#fff; text-shadow:0 2px 16px #000b,0 0 3px #0009; pointer-events:none}
+.card-play {position:absolute; right:10px; bottom:9px; display:grid; place-items:center; width:38px; height:38px; border-radius:99px; background:#fff; color:#10222b; box-shadow:0 4px 14px #0006; opacity:0; transform:translateY(6px) scale(.9); transition:opacity var(--quick),transform var(--quick) var(--ease); pointer-events:none}
+.card:hover .card-play,.card:focus-within .card-play {opacity:1; transform:none}
+.card-loading {position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; background:linear-gradient(100deg,var(--soft) 35%,var(--surface) 50%,var(--soft) 65%) 0 0/250% 100%; animation:shimmer 1.3s linear infinite; color:var(--muted); font-size:.82rem; font-weight:650}
+.card-details {gap:3px; padding:10px 13px 12px}
+.card-title {gap:2px}
+.card-title h3 {flex:1; font-size:1.04rem; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; overflow-wrap:anywhere}
+.card-details p {flex:none; min-height:2.9em; font-size:.84rem}
+.card-kind {margin-top:auto; color:var(--muted); font-size:.72rem; font-weight:650; letter-spacing:.03em}
+.tv-mode .category-track,.tv-mode .category-row.single .category-track {grid-auto-columns:clamp(270px,calc((100% - 32px) / 3),475px)}
+.in-app .cards {gap:2px}
+.in-app .card,.in-app .card:hover,.in-app .card:focus-within {transform:none; transition:none}
+
+/* Search */
+.search-box {position:relative; display:flex; min-width:0}
+.search-box .search {flex:1; min-width:0}
+.search-box.filled input {padding-right:30px}
+.search-clear {position:absolute; right:4px; top:50%; translate:0 -50%; display:grid; place-items:center; width:32px; height:32px; border-radius:var(--r-sm); background:transparent; color:var(--muted)}
+.search-clear:hover {background:var(--soft); color:var(--ink)}
+
+/* Loading, empty and error states */
+.catalog-state {border-style:solid; border-color:var(--line); min-height:230px; animation:rise .2s var(--ease)}
+.catalog-state strong {font-size:1.15rem; letter-spacing:-.02em}
+.catalog-state[role=alert] .state-icon {background:var(--danger-bg); color:var(--danger)}
+.catalog-state .button {min-height:44px}
+.skeletons {margin-top:26px}
+.skeletons > p {color:var(--muted); font-weight:650; margin-bottom:12px}
+.skeleton-track {display:grid; grid-auto-flow:column; grid-auto-columns:var(--card-width); gap:16px; overflow:hidden}
+.skeleton {height:calc(var(--card-width) * .5625 + 96px); border-radius:var(--r); border:1px solid var(--line); background:linear-gradient(100deg,var(--surface) 35%,var(--soft) 50%,var(--surface) 65%) 0 0/250% 100%; animation:shimmer 1.3s linear infinite}
+
+@media(min-width:950px) {
+  .category-row.single {grid-column:1/-1}
+  .category-row.single .category-track {grid-auto-columns:var(--card-width)}
+  .category-row.single .card-preview {aspect-ratio:16/9; max-height:none}
+}
+@media(min-width:960px) and (max-width:1199px) {
+  .with-assistant .category-row.single .category-track {grid-auto-columns:var(--card-width)}
+}
+@media(max-width:740px) {
+  :root {--card-width:min(78vw,310px)}
+  .cards {display:grid; gap:24px}
+  .category-row + .category-row {margin-top:0}
+  .category-track,.tv-mode .category-track,.category-row.single .category-track {grid-auto-columns:var(--card-width)}
+  .carousel-controls {display:none}
+  .spotlight {margin-top:14px; min-height:250px}
+  .spotlight-art {inset:0 0 36% 0}
+  .spotlight::after {background:linear-gradient(0deg,var(--art-base,#0e1c2b) 42%,transparent 82%)}
+  .spotlight-body {max-width:100%; width:100%; padding:16px}
+  .spotlight-actions {width:100%}
+  .spotlight-actions .button {flex:1 1 130px}
+  .search-clear {width:40px; height:40px; right:0}
+  .search-box {flex:1}
+  .search-box.filled input {padding-right:36px}
+  .mobile-quick {scrollbar-width:none}
+}
+@media(hover:none) {
+  .card:not(.card-open):hover {transform:none; box-shadow:0 2px 5px #132b3010}
+  .card:not(.card-open):active {transform:scale(.985)}
+  .card-play {display:none}
+}
+/* Reduced motion also means no lifting or zooming, not just no transitions. */
+@media(prefers-reduced-motion:reduce) {
+  .card:not(.card-open):hover,.card:not(.card-open):focus-within,.card:not(.card-open):active,.button:active:not(:disabled),.icon-button:active:not(:disabled) {transform:none}
+  .card:not(.card-open):hover :is(.theme-art,.card-image),.card:not(.card-open):focus-within :is(.theme-art,.card-image) {transform:none}
+}
