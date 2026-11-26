@@ -1,0 +1,12 @@
+.dkf-panel {
+  padding: clamp(1rem, 4vw, 2rem);
+  border: 1px solid var(--dkf-line, #cbd8d0);
+  border-radius: var(--dkf-radius, 1rem);
+  background: var(--dkf-surface, white);
+}
+.dkf-field { display: grid; gap: .3rem; min-width: 0; }
+.dkf-input, .dkf-button { font: inherit; min-height: 2.75rem; padding: .4rem .65rem; border-radius: .45rem; }
+.dkf-input { border: 1px solid var(--dkf-control-line, #7c9286); min-width: 0; width: 100%; }
+.dkf-button { border: 1px solid var(--dkf-accent, #11392d); background: var(--dkf-accent, #11392d); color: var(--dkf-accent-text, white); }
+.dkf-button:disabled { opacity: .65; }
+.dkf-button:focus-visible, .dkf-input:focus-visible { outline: 2px solid var(--dkf-accent, #11392d); outline-offset: 2px; }

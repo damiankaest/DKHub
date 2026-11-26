@@ -25,6 +25,7 @@ from themes import router as themes_router
 from chat_ai import ChatRequest, respond
 import settings
 from page_analysis import analyze_page
+from forge import build_router as forge_router
 
 ROOT = Path(__file__).resolve().parent
 CATALOG = Path(os.environ.get("DKHUB_APPS_FILE", ROOT / ".local" / "apps.json"))
@@ -293,6 +294,8 @@ def director_request(path: str, method: str = "GET", payload: dict | None = None
                      headers={"X-Director-Token": token, "Content-Type": "application/json"})
     try:
         timeout = 7200 if method == "POST" and "/backups" in path else (320 if method == "POST" else 40)
+        if method == "POST" and path.endswith("/postgres/backup"):
+            timeout = 650
         with urlopen(req, timeout=timeout) as response:
             return json.load(response)
     except HTTPError as exc:
@@ -469,6 +472,10 @@ def director_action(service_id: str, action: str, request: Request, admin_passwo
     if action == "start" and isinstance(result, dict):
         sync_tile(result)
     return result
+
+
+app.include_router(forge_router(lambda *args: director_request(*args),
+                               lambda: director_host(), lambda *args: save_service_tile(*args)))
 
 
 class SettingsUpdate(BaseModel):

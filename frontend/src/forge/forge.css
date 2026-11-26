@@ -1,0 +1,24 @@
+.director-views.forge-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 650px; }
+.forge-view { display: grid; gap: 12px; max-width: 760px; }
+.forge-panel { min-width: 0; }
+.forge-fields { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.forge-panel h2, .forge-panel h3, .forge-panel dl { margin: 0; }
+.forge-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.forge-toolbar label { min-width: 0; flex: 1 1 180px; }
+.forge-toolbar select { width: 100%; }
+.forge-panel textarea { width: 100%; min-width: 0; resize: vertical; }
+.forge-check { display: flex; align-items: center; gap: 8px; }
+.forge-check input { width: auto; min-height: 0; flex: none; accent-color: var(--accent-ink); }
+.forge-action { justify-self: start; }
+.forge-progress { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; }
+.forge-progress dd { margin: 0; overflow-wrap: anywhere; }
+.forge-view code, .forge-view .service-notice p { overflow-wrap: anywhere; }
+.forge-view .service-notice p { white-space: pre-wrap; }
+.forge-editor-link { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.forge-editor-link p { margin: 0; }
+@media (max-width: 550px) {
+  .director-views.forge-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .director-views.forge-nav button:last-child { grid-column: 1 / -1; }
+  .forge-progress { grid-template-columns: minmax(0, 1fr); }
+  .forge-progress dd { margin-bottom: 7px; }
+}

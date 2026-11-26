@@ -1,0 +1,13 @@
+{
+  "name": "@dkforge/ui",
+  "version": "1.0.0",
+  "description": "Accessible React primitives and theme tokens for DKForge projects",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./styles.css": "./styles.css"
+  },
+  "files": ["index.js", "styles.css", "README.md", "CHANGELOG.md"],
+  "peerDependencies": { "react": "^19.0.0" },
+  "sideEffects": ["*.css"]
+}
