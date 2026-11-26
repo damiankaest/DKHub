@@ -4,6 +4,20 @@ DKDirector startet pro Installation einen Container per `docker run -d`. Die gen
 
 Auf Windows mit Docker Desktop im Linux-Modus liegen die Volume-Daten im Docker-Dateisystem. Ein kurzlebiger Linux-Hilfscontainer archiviert ein Volume mit `tar`; Python streamt das Archiv binär über die Docker-CLI in eine Datei auf dem Windows-Host. Das Volume wird bei der Sicherung nur lesbar eingehängt. Der Hilfscontainer hat ein schreibgeschütztes Root-Dateisystem, kein Netzwerk und keinen Host-Bind-Mount. Beim Restore erhält er jeweils nur das neue Zielvolume. Die Docker-Dokumentation beschreibt auch das separate Sichern des gesamten VM-Datenträgers. [Docker Volumes](https://docs.docker.com/engine/storage/volumes/) · [Docker Desktop sichern und wiederherstellen](https://docs.docker.com/desktop/settings-and-maintenance/backup-and-restore/)
 
+## Bedienung in DKHub
+
+Bei **Neuer Dienst** lassen sich unter **Dauerhafte Daten** die in der Anleitung des Images angegebenen Datenpfade eintragen. Die App muss in diese Pfade schreiben, damit ihre Daten in den Volumes liegen. Eine Rückfrage zum automatisch gesuchten Web-Port erhält die eingegebenen Mounts.
+
+**Daten und Backups** zeigt pro Dienst die aktiven, von DKHub verwalteten Mounts und die vorhandenen Backups. Für ein Backup zuerst den Dienst stoppen. Die Wiederherstellung zeigt die Sicherungsquellen und die exakten Namen der neuen Volumes. Nach Eingabe von `RESTORE` werden diese befüllt. Für die Nutzung restaurierter Daten ist anschließend eine manuelle Aktivierung durch kontrollierte Neuerstellung des Containers nötig. Backups liegen unverschlüsselt auf dem DKHub-Rechner.
+
+## Stoppen und Neustarten
+
+Der Director speichert für Installationen mit Volumes Name, Image-Referenz, Container-Port, feste Host-Adresse, Hostport, Neustartregel und Volume-Zuordnung. Start/Stopp verwenden denselben Container und dieselben Volumes. Die Dienstliste meldet fehlende Volumes oder eine abweichende Mount-Zuordnung über `volume_issue`. Beim Start über DKHub prüft Director zusätzlich das Eigentumskennzeichen der Volumes und die Verfügbarkeit des festen Ports. Bestehende Container ohne gespeicherte Volume-Definition werden weiterhin über Docker verwaltet.
+
+Neue Container nutzen Dockers `unless-stopped`. Docker Desktop startet nach einem Daemon-Neustart zuvor laufende Dienste mit der gespeicherten Containerkonfiguration. Ausdrücklich gestoppte Dienste bleiben aus. Director und Docker starten dabei keinen Restore. [Docker-Neustartregeln](https://docs.docker.com/engine/containers/start-containers-automatically/)
+
+Der Test mit zwei echten Testvolumes prüft Stoppen, Starten, einen belegten Hostport, unveränderte Mounts, Backup und Restore. Er ändert nach dem Backup bewusst die Testdaten im Original und prüft, dass ein weiterer Start diese Änderung behält. Der echte Daemon-Neustart blieb in der gemeinsam genutzten Umgebung offen. Auf einem exklusiven Testsystem sind dafür zwei Testdienste mit derselben Neustartregel sinnvoll, einer laufend und einer ausdrücklich gestoppt. Vor und nach dem Daemon-Neustart Container-ID, Zustand, festen Port, Volume-Namen und Testdateien vergleichen.
+
 ## Lokale Bedienung
 
 Die CLI benötigt Python ab 3.11. Für Volumes braucht sie Zugriff auf den Linux-Docker-Daemon und ein lokal vorhandenes, vertrauenswürdiges Hilfsimage mit `sh` und `tar`. Vorgabe ist `alpine:3.22`. Das Image bei Bedarf vorab mit `docker pull alpine:3.22` bereitstellen. `--helper-image` erlaubt ein anderes bereits lokal verfügbares Image oder einen Digest. Reine Konfigurationsbackups brauchen keinen Docker-Zugriff.
@@ -88,3 +102,9 @@ py -m unittest director.tests.test_backups -v
 ```
 
 Ohne die Testvariable verwendet die Suite für Volume-Transfers einen Speicherersatz. Der optionale Docker-Test erzeugt zwei eigene Testvolumes, befüllt sie und prüft die restaurierten Kopien und Originale auf Dateninhalt, Symlink, Dateimodus, UID und GID. Die Bereinigung betrifft ausschließlich die Volumes der zufällig erzeugten Test-Dienst-ID.
+
+## Zusammenführen mit der UI-Arbeit
+
+Die Anschlusspunkte in bestehenden UI-Dateien sind `frontend/src/Director.jsx` (API-Fehlerstatus, Ladezustand, Backup-Panel), `frontend/src/director/InstallPanel.jsx` (Mount-Eingaben und erneute Anfrage mit manuell gewähltem Port) und `frontend/src/director/ServiceCard.jsx` (Volume-Fehler und Platz für das Backup-Panel). Gegen den geprüften Stand von `feature/ui-polish` bei `2870dc6` gibt es keine direkt gemeinsam geänderten Dateien. Nach dem Zusammenführen bleibt der Aufruf des Directors über die neue Navigation ein gemeinsamer Testpfad. Die Darstellung liegt in `frontend/src/director/storage.css`. `main.jsx` und die globalen Styles sind von diesem Branch unberührt.
+
+Gegen den parallel fortgeschrittenen Stand von `main` ist `.github/workflows/ci.yml` eine gemeinsam geänderte Datei. Die Director-Testvorbereitung mit dem lokalen TAR-Hilfsimage beim Zusammenführen beibehalten.

@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { describe, isActive, outdated } from './serviceStatus';
 
-export function ServiceCard({ service, tile, health, favorite, disabled, locked, working, onOpen, onFavorite, onConfigure, onPublish, onRemove, onCheck, onToggle }) {
+export function ServiceCard({ service, tile, health, favorite, disabled, locked, working, onOpen, onFavorite, onConfigure, onPublish, onRemove, onCheck, onToggle, children }) {
   const status = describe(service, health);
   const active = isActive(service);
   const stale = outdated(tile, service);
@@ -21,6 +21,7 @@ export function ServiceCard({ service, tile, health, favorite, disabled, locked,
       </div>
       {tile && <button type="button" className="icon-button service-favorite" aria-pressed={favorite} aria-label={favorite ? 'Favorit entfernen' : 'Als Favorit'} title={favorite ? 'Favorit entfernen' : 'Als Favorit'} onClick={() => onFavorite(tile.id)}><Icon name="star" size={19} filled={favorite} /></button>}
     </header>
+    {service.volume_issue && <p className="service-hint storage-problem" role="alert">{service.volume_issue}</p>}
     {status.text && <p className="service-hint">{status.text}</p>}
     <p className="service-library">{!tile ? 'Nicht in der Bibliothek' : stale ? 'Die Kachel zeigt noch auf eine alte Adresse' : 'In der Bibliothek'}</p>
     <div className="service-actions" role="group" aria-label={`Aktionen für ${service.name}`}>
@@ -47,5 +48,6 @@ export function ServiceCard({ service, tile, health, favorite, disabled, locked,
         {health?.status === 'reachable' && <><dt>Antwort</dt><dd>HTTP {health.http_status}</dd></>}
       </dl>
     </details>
+    {children}
   </article>;
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
 import { Notice } from './Notice';
+import { VolumeFields, volumePayload } from './VolumeFields';
 
 // Search first, then a short form for the chosen app. onSearch and onInstall throw readable errors.
 export function InstallPanel({ locked, onSearch, onInstall }) {
@@ -11,6 +12,7 @@ export function InstallPanel({ locked, onSearch, onInstall }) {
   const [tag, setTag] = useState('latest');
   const [port, setPort] = useState('');
   const [portChoices, setPortChoices] = useState(null);
+  const [volumeRows, setVolumeRows] = useState([]);
   const [pending, setPending] = useState('');
   const [error, setError] = useState('');
   const heading = useRef(null);
@@ -32,6 +34,7 @@ export function InstallPanel({ locked, onSearch, onInstall }) {
   }
   function choose(item) {
     setImage(item.name); setName(item.name.split('/').pop()); setTag('latest'); setPort(''); setPortChoices(null); setError('');
+    setVolumeRows([]);
   }
   function back() {
     setImage(''); setError('');
@@ -40,7 +43,9 @@ export function InstallPanel({ locked, onSearch, onInstall }) {
   function install(event) {
     event.preventDefault();
     attempt('install', async () => {
-      const ports = await onInstall({ name, image: `${image}:${tag}`, ...(port ? { port: Number(port) } : {}) });
+      const volumes = volumePayload(volumeRows);
+      const ports = await onInstall({ name, image: `${image}:${tag}`,
+        ...(port ? { port: Number(port) } : {}), ...(volumes.length ? { volumes } : {}) });
       if (ports) setPortChoices(ports);
     });
   }
@@ -66,7 +71,7 @@ export function InstallPanel({ locked, onSearch, onInstall }) {
   return <form className="service-box director-install" onSubmit={install}>
     <button type="button" className="button quiet back-link" disabled={busy} onClick={back}><Icon name="back" size={16} />Andere App wählen</button>
     <h2 ref={heading} tabIndex={-1}>{image} installieren</h2>
-    <p>Installiere nur Apps, denen du vertraust. Apps, die Zugangsdaten, eine Datenbank oder eigene Einstellungen brauchen, funktionieren so noch nicht. In der App gespeicherte Daten können verloren gehen.</p>
+    <p>Installiere nur Apps, denen du vertraust. Apps mit Zugangsdaten, einer Datenbank oder eigenen Einstellungen benötigen eine zusätzliche Einrichtung.</p>
     <label className="director-label">Name<input required maxLength="60" value={name} disabled={busy} onChange={event => setName(event.target.value)} /><small>So heißt die Kachel in deiner Bibliothek.</small></label>
     {portChoices && <fieldset className="director-port" disabled={busy}>
       <legend>Port der Weboberfläche</legend>
@@ -80,6 +85,7 @@ export function InstallPanel({ locked, onSearch, onInstall }) {
       <label className="director-label">Version<input required pattern="[A-Za-z0-9_][A-Za-z0-9_.-]*" autoCapitalize="none" value={tag} disabled={busy} onChange={event => { setTag(event.target.value); setPort(''); setPortChoices(null); }} /><small>„latest“ ist meist die neueste Version.</small></label>
       {!portChoices && <label className="director-label">Port (optional)<input type="number" inputMode="numeric" min="1" max="65535" placeholder="wird automatisch erkannt" value={port} disabled={busy} onChange={event => setPort(event.target.value)} /></label>}
     </details>
+    <VolumeFields rows={volumeRows} onChange={setVolumeRows} disabled={busy} />
     {pending === 'install' && <Notice type="busy">Die App wird geladen und gestartet. Beim ersten Mal kann das einige Minuten dauern. Bitte bleib auf dieser Seite.</Notice>}
     {error && <Notice type="error">{error}</Notice>}
     {locked && <p>Gib oben zuerst das Admin-Passwort ein.</p>}

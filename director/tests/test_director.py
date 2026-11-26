@@ -215,6 +215,36 @@ def test_health_states(monkeypatch, state, code, expected):
     assert client.get('/services/dkhub-x/health', headers=TOKEN).json()['status'] == expected
 
 
+def test_missing_volume_is_reported_and_start_is_blocked(tmp_path, monkeypatch):
+    from director import service_data
+    from director.volumes import Volume
+
+    service_id = 'dkhub-' + 'a' * 32
+    volume = Volume(service_id, 'data', '/data')
+    monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
+    monkeypatch.setenv('DKDIRECTOR_DATA_DIR', str(tmp_path))
+    service_data.save_definition(service_id, 'Test', 'nginx:latest', 80, '127.0.0.1', 25000, [volume])
+    monkeypatch.setattr(main, 'inspect_service', lambda _: {
+        'id': service_id, 'state': 'exited', 'volumes': [service_data.volume_view(volume)],
+    })
+
+    class MissingVolumeEngine:
+        def names(self):
+            return set()
+
+    def docker(*args, **kwargs):
+        assert args[0] == 'ps', 'Start must not run with a missing volume'
+        return service_id
+
+    monkeypatch.setattr(main, 'docker', docker)
+    monkeypatch.setattr(service_data, 'volume_engine', MissingVolumeEngine)
+    services = client.get('/services', headers=TOKEN).json()
+    assert volume.name in services[0]['volume_issue']
+    result = client.post(f'/services/{service_id}/start', headers=TOKEN)
+    assert result.status_code == 409
+    assert result.json()['detail'] == services[0]['volume_issue']
+
+
 @pytest.mark.skipif(os.environ.get('DKDIRECTOR_DOCKER_TEST') != '1', reason='disposable Docker runner required')
 def test_real_docker_web_service(monkeypatch):
     monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
@@ -302,6 +332,11 @@ def test_hub_to_director_real_service(tmp_path, monkeypatch):
         assert service['container_port'] == 80 and service['fixed_port']
         saved = json.loads((state_dir / 'services' / f'{service_id}.json').read_text())
         assert saved['host_port'] == service['host_port']
+        assert saved['host_ip'] == service['host_ip'] == '127.0.0.1'
+        assert saved['container_port'] == 80 and saved['image'] == 'traefik/whoami:v1.10.4'
+        assert saved['name'] == test_name and service['autostart']
+        assert saved['restart_policy'] == 'unless-stopped'
+        assert engine.run('inspect', '--format', '{{.HostConfig.RestartPolicy.Name}}', service_id).strip() == 'unless-stopped'
         originals = engine.discover(service_id)
         assert len(originals) == 2
         base = f'/api/director/services/{service_id}'
@@ -313,6 +348,20 @@ def test_hub_to_director_real_service(tmp_path, monkeypatch):
                            check=True, capture_output=True)
         stopped = hub.post(base + '/stop', headers=headers).json()
         assert stopped['state'] == 'exited' and stopped['host_port'] == service['host_port']
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', service['host_port']))
+            listener.listen()
+            conflict = hub.post(base + '/start', headers=headers)
+            assert conflict.status_code == 409 and 'belegt' in conflict.json()['detail']
+        restarted = hub.post(base + '/start', headers=headers)
+        assert restarted.status_code == 200, restarted.text
+        assert restarted.json()['volumes'] == service['volumes']
+        assert restarted.json()['host_port'] == service['host_port']
+        assert hub.post(base + '/backups/list', headers=headers).json() == []
+        for volume in originals:
+            engine.helper(volume, 'sh', '-ec', 'test "$(cat /data/marker)" = "$1"',
+                          'sh', volume.key, readonly=True)
+        assert hub.post(base + '/stop', headers=headers).json()['state'] == 'exited'
         created = hub.post(base + '/backups', headers=headers)
         assert created.status_code == 201, created.text
         backup = created.json()
@@ -338,9 +387,13 @@ def test_hub_to_director_real_service(tmp_path, monkeypatch):
         for volume in all_volumes:
             engine.helper(volume, 'sh', '-ec', 'test "$(cat /data/marker)" = "$1"',
                           'sh', volume.key, readonly=True)
+        # Change only the original to prove that start neither rolls back its data nor attaches the copy.
+        engine.helper(originals[0], 'sh', '-ec', 'printf updated > /data/marker')
         restarted = hub.post(base + '/start', headers=headers).json()
         assert restarted['state'] == 'running' and restarted['host_port'] == service['host_port']
         assert restarted['volumes'] == service['volumes']
+        engine.helper(originals[0], 'sh', '-ec', 'test "$(cat /data/marker)" = updated', readonly=True)
+        assert engine.discover(service_id) == all_volumes
     finally:
         process.terminate()
         process.wait(timeout=10)
