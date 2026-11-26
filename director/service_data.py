@@ -68,7 +68,7 @@ def save_definition(service_id, name, image, port, ip, host_port, volumes):
             temp.unlink()
 
 
-def load_definition(service_id):
+def load_definition(service_id, *, required=True):
     path = definition_path(service_id)
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
@@ -79,9 +79,36 @@ def load_definition(service_id):
         validate_mounts(volumes)
         return record, volumes
     except FileNotFoundError as exc:
+        if not required:
+            return None
         raise HTTPException(409, "This service has no recorded managed volumes") from exc
     except (BackupError, OSError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(502, "The stored service definition could not be read") from exc
+
+
+def storage_issue(service, *, verify=False):
+    """Detect changes to the stored mapping without creating or replacing Docker volumes."""
+    try:
+        definition = load_definition(service["id"], required=False)
+    except HTTPException:
+        return "Die gespeicherte Dienstdefinition ist nicht lesbar. Prüfe sie vor dem Start."
+    if definition is None:
+        return None  # Legacy services are still managed by Docker.
+    _, volumes = definition
+    engine = volume_engine()
+    try:
+        missing = {volume.name for volume in volumes} - engine.names()
+        if missing:
+            return "Docker-Volumes fehlen: " + ", ".join(sorted(missing)) + ". Prüfe die Daten vor dem Start."
+        expected = sorted(map(volume_view, volumes), key=lambda item: item["key"])
+        if service.get("volumes", []) != expected:
+            return "Die Mounts des Containers weichen von der gespeicherten Dienstdefinition ab."
+        if verify:
+            for volume in volumes:
+                engine.verify(volume)
+    except BackupError as exc:
+        return f"Die gespeicherten Docker-Volumes konnten nicht bestätigt werden: {exc}"
+    return None
 
 
 @contextmanager

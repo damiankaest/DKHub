@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .service_data import (MountRequest, backup_router, save_definition,
-                           service_data_operation, volume_engine, volume_view)
+                           service_data_operation, storage_issue, volume_engine, volume_view)
 from .volumes import BackupError, Volume, validate_mounts
 
 app = FastAPI(title="DKDirector", docs_url=None, redoc_url=None, openapi_url=None)
@@ -279,7 +279,12 @@ def search(q: str, x_director_token: str = Header(default="")):
 def list_services(x_director_token: str = Header(default="")):
     check_token(x_director_token)
     raw = docker("ps", "-a", "--filter", f"label={LABEL}", "--format", "{{.Names}}")
-    return [inspect_service(name) for name in raw.splitlines() if SERVICE.fullmatch(name)]
+    services = [inspect_service(name) for name in raw.splitlines() if SERVICE.fullmatch(name)]
+    for service in services:
+        issue = storage_issue(service)
+        if issue:
+            service["volume_issue"] = issue
+    return services
 
 
 @app.post('/services', status_code=201)
@@ -359,6 +364,14 @@ def change_state(service_id: str, action: str, x_director_token: str = Header(de
 
 def apply_state_change(service_id: str, action: str):
     service = inspect_service(service_id)
+    if action == "start":
+        issue = storage_issue(service, verify=True)
+        if issue:
+            raise HTTPException(409, issue)
+        if (service["state"] in {"exited", "created", "dead"} and service["fixed_port"]
+                and service["host_ip"] and service["host_port"]
+                and not port_is_free(service["host_ip"], service["host_port"])):
+            raise HTTPException(409, port_taken_message(service["host_port"]))
     try:
         docker(action, "--", service_id, timeout=60)
     except HTTPException as exc:

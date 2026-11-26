@@ -1,0 +1,35 @@
+.director-storage {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.director-storage[hidden] { display: none; }
+.director-storage :is(h4, p, dl, dd, ul) { margin: 0; }
+.director-storage p { font-size: .88rem; }
+.director-storage code, .storage-problem { overflow-wrap: anywhere; }
+.director-storage > .button { justify-self: start; }
+.storage-disclosure { border-top: 1px solid var(--line); padding-top: 10px; }
+.storage-disclosure > .button { min-height: 40px; }
+.storage-disclosure > .director-storage { margin-top: 12px; }
+.storage-fields, .storage-restore {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.storage-fields { margin: 0; }
+.storage-fields legend { padding-inline: 5px; font-size: .9rem; font-weight: 650; }
+.storage-fields .button { justify-self: start; }
+.storage-volumes, .storage-backups { list-style: none; padding: 0; }
+.storage-volumes li, .storage-backups li, .storage-targets > div {
+  padding-block: 8px;
+  border-top: 1px solid var(--line);
+}
+.storage-volume-name { display: block; margin-top: 3px; }
+.storage-volumes code, .storage-targets code, .storage-backups small { color: var(--muted); }
+.storage-backups li { display: grid; gap: 4px; justify-items: start; }
+.storage-targets dt { font-weight: 650; }
+.storage-targets dd code { display: block; }
+.director-storage .service-notice { margin: 0; }

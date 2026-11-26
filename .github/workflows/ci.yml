@@ -98,7 +98,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r backend/requirements.txt pytest httpx
+      - run: docker pull alpine:3.22
       - name: Test DKDirector with disposable Docker container
         env:
           DKDIRECTOR_DOCKER_TEST: '1'
+          DKHUB_TEST_DOCKER_IMAGE: 'alpine:3.22'
         run: python -m pytest -q director/tests

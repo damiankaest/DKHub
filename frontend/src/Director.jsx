@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { removeApp } from './api';
 import { useAuthRequired } from './auth';
 import { Icon } from './Icon';
+import { BackupPanel } from './director/BackupPanel';
 import { InstallPanel } from './director/InstallPanel';
 import { Notice } from './director/Notice';
 import { ServiceCard } from './director/ServiceCard';
@@ -15,7 +16,7 @@ async function call(path, password, body) {
   if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
   if (!response.ok) {
     const detail = await response.json().then(data => data.detail, () => null);
-    throw new Error(typeof detail === 'string' ? detail : 'Aktion fehlgeschlagen. Prüfe den Dienstzustand, bevor du erneut versuchst.');
+    throw Object.assign(new Error(typeof detail === 'string' ? detail : 'Aktion fehlgeschlagen. Prüfe den Dienstzustand, bevor du erneut versuchst.'), { status: response.status });
   }
   return response.json();
 }
@@ -26,13 +27,14 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
   const [services, setServices] = useState(null);
   const [checks, setChecks] = useState({});
   const [working, setWorking] = useState(null);
+  const [backupWorking, setBackupWorking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [installed, setInstalled] = useState(0);
   const latestCheck = useRef({});
   const authRequired = useAuthRequired();
   const locked = authRequired && !password;
-  const busy = loading || Boolean(working);
+  const busy = loading || Boolean(working) || backupWorking;
 
   // Counting per service keeps a slower, older answer from replacing a newer one.
   function nextTurn(id) { latestCheck.current[id] = (latestCheck.current[id] || 0) + 1; return latestCheck.current[id]; }
@@ -127,7 +129,10 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
         const tile = apps.find(app => app.id === tileId(service));
         return <ServiceCard key={service.id} service={service} tile={tile} health={checks[service.id]} favorite={Boolean(tile && favorites.includes(tile.id))}
           disabled={busy} locked={locked} working={working?.id === service.id ? working.label : ''}
-          onOpen={onOpen} onFavorite={onFavorite} onConfigure={onConfigure} onPublish={publish} onRemove={remove} onCheck={item => check(item.id)} onToggle={toggle} />;
+          onOpen={onOpen} onFavorite={onFavorite} onConfigure={onConfigure} onPublish={publish} onRemove={remove} onCheck={item => check(item.id)} onToggle={toggle}>
+          <BackupPanel service={service} locked={locked} disabled={busy}
+            request={(path, body) => call(path, password, body)} onBusyChange={setBackupWorking} />
+        </ServiceCard>;
       })}</div>
     </div>
     {/* Stays mounted so a search survives switching views; a finished installation starts it fresh. */}
