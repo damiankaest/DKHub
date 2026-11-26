@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { defaultTheme } from '../src/themes/palette.js';
 
 test.beforeEach(async ({page}) => {
+  await page.route('**/api/director/image', r => r.fulfill({json:{ports:[], volumes:[], env:[], recipe:null}}));
   // Never depend on the auth mode of a Hub that happens to run locally.
   await page.route('**/api/auth', r=>r.fulfill({json:{password_required:true}}));
   await page.route('**/api/theme', r => r.fulfill({json:defaultTheme}));
@@ -162,6 +163,42 @@ test('service cards explain problems, offer one next step and fit a phone', asyn
   await long.getByRole('button', {name:'Starten'}).click();
   await expect(page.getByRole('alert')).toHaveText('Der feste Port 25000 ist belegt.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
+
+test('adding a service shows what it needs and sends the edited settings', async ({ page }) => {
+  let sent;
+  await page.route('**/api/auth', route => route.fulfill({ json: { password_required: false } }));
+  await page.route('**/api/apps', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/list', route => route.fulfill({ json: [] }));
+  await page.route('**/api/director/search?*', route => route.fulfill({ json: [{name:'traceapps/lifttrace', description:'Workouts'}] }));
+  await page.route('**/api/director/image', route => route.fulfill({ json: { ports:[3002], volumes:[], env:['NODE_VERSION'], recipe:{ note:'Vorlage nach der Anleitung.',
+    volumes:[{key:'db', target:'/data/db', label:'Datenbank'}],
+    env:[{key:'JWT_SECRET', value:'', label:'Geheimer Schlüssel', required:true, secret:true, generate:true}, {key:'INSECURE_COOKIES', value:'1', label:'Anmeldung über http', required:false}] } } }));
+  await page.route('**/api/director/install', route => { sent = route.request().postDataJSON(); return route.fulfill({ status:502, json:{detail:'Testende'} }); });
+  await page.goto('/');
+  await page.getByRole('button', {name:'Dienste', exact:true}).click();
+  await page.getByRole('button', {name:'Neuer Dienst'}).click();
+  await page.getByLabel('Wonach suchst du?').fill('lifttrace');
+  await page.getByRole('button', {name:'Suchen', exact:true}).click();
+  await page.getByRole('button', {name:'Auswählen: traceapps/lifttrace'}).click();
+  await expect(page.getByText('Vorlage nach der Anleitung.')).toBeVisible();
+  await expect(page.getByRole('group', {name:'Datenbank'}).getByLabel('Container-Mountpfad')).toHaveValue('/data/db');
+  const secret = page.getByRole('group', {name:'Geheimer Schlüssel'}).getByLabel('Wert');
+  await expect(secret).toHaveAttribute('type', 'password');
+  await expect(secret).toHaveValue(/^[0-9a-f]{64}$/);
+  await secret.fill('');
+  await page.getByRole('button', {name:'Installieren und starten'}).click();
+  await expect(page.getByRole('alert')).toContainText('JWT_SECRET wird von der App benötigt');
+  expect(sent).toBeUndefined();
+  await secret.fill('eigener-schluessel');
+  await page.getByRole('button', {name:'Einstellung hinzufügen'}).click();
+  const added = page.getByRole('group', {name:'Einstellung 3'});
+  await added.getByLabel('Name').fill('TZ');
+  await added.getByLabel('Wert').fill('Europe/Berlin');
+  await page.getByRole('button', {name:'Erneut versuchen'}).click();
+  await expect(page.getByRole('alert')).toContainText('Testende');
+  expect(sent.volumes).toEqual([{key:'db', target:'/data/db'}]);
+  expect(sent.env).toEqual([{key:'JWT_SECRET', value:'eigener-schluessel'}, {key:'INSECURE_COOKIES', value:'1'}, {key:'TZ', value:'Europe/Berlin'}]);
 });
 
 test('chat searches the catalog and opens an embedded app', async ({ page }) => {

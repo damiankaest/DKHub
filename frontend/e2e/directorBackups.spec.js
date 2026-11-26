@@ -31,6 +31,10 @@ async function openDirector(page) {
   await page.getByRole('button', { name: 'Dienste', exact: true }).click();
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/director/image', route => route.fulfill({ json: { ports: [], volumes: [], env: [], recipe: null } }));
+});
+
 test('keeps multiple optional mount definitions when Docker asks for a port', async ({ page }) => {
   let installed = false;
   const attempts = [];

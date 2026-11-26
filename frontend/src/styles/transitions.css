@@ -1,0 +1,24 @@
+/* Calm changes of view. Timing lives here; transition.js decides what moves. */
+:root {interpolate-size:allow-keywords}
+
+html.view-transitions .main > section,html.view-transitions .catalog:not(.in-app) {animation:none}
+::view-transition-old(root),::view-transition-new(root) {animation-duration:.28s; animation-timing-function:ease}
+
+/* Flying into an app: the picture grows from the card to the window and back. */
+::view-transition-group(app-zoom) {z-index:2; overflow:hidden; border-radius:var(--r); animation-duration:.5s; animation-timing-function:cubic-bezier(.22,.9,.22,1)}
+::view-transition-old(app-zoom),::view-transition-new(app-zoom) {width:100%; height:100%; object-fit:cover; object-position:top center; animation-duration:.18s; animation-timing-function:ease-out}
+
+/* Loading cover fades away instead of vanishing. */
+.card-loading {transition:opacity .35s ease,visibility .35s}
+.card-loading.done {opacity:0; visibility:hidden; animation:none}
+
+/* Expanding sections open gently where the browser can animate to automatic height. */
+.service-more::details-content {height:0; overflow:clip; opacity:0; transition:height .28s ease,opacity .28s ease,content-visibility .28s allow-discrete}
+.service-more[open]::details-content {height:auto; opacity:1}
+.service-more summary svg {transition:transform .28s ease}
+
+@media(prefers-reduced-motion:reduce) {
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*) {animation:none!important}
+  /* The global rule does not reach this pseudo-element. */
+  .service-more::details-content {transition:none!important}
+}

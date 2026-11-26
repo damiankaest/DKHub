@@ -409,3 +409,47 @@ def test_hub_to_director_real_service(tmp_path, monkeypatch):
                 engine.run('rm', '-f', '--', test_id)
             for volume in engine.discover(test_id):
                 engine.run('volume', 'rm', '--', volume.name)
+
+
+def test_settings_reach_docker_through_a_temporary_file_only(monkeypatch):
+    calls, seen = [], {}
+    base = fake_docker(calls)
+    def fake(*args, **kwargs):
+        if args[0] == 'run':
+            path = args[args.index('--env-file') + 1]
+            seen['path'], seen['content'] = path, open(path, encoding='utf-8').read()
+        return base(*args, **kwargs)
+    monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
+    monkeypatch.setenv('DKDIRECTOR_BIND_IP', '127.0.0.1')
+    monkeypatch.setattr(main, 'docker', fake)
+    body = {'name': 'Test', 'image': 'nginx:latest', 'env': [{'key': 'JWT_SECRET', 'value': 'sehr geheim = ä'}]}
+    assert client.post('/services', headers=TOKEN, json=body).status_code == 201
+    assert seen['content'] == 'JWT_SECRET=sehr geheim = ä\n'
+    assert not os.path.exists(seen['path'])
+    assert not any('geheim' in part for args in calls for part in args)
+
+
+@pytest.mark.parametrize('env', [[{'key': 'A B', 'value': '1'}], [{'key': 'A', 'value': 'x\nEVIL=1'}],
+                                 [{'key': 'A', 'value': '1'}, {'key': 'A', 'value': '2'}]])
+def test_invalid_settings_never_start_a_container(monkeypatch, env):
+    calls = []
+    monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
+    monkeypatch.setenv('DKDIRECTOR_BIND_IP', '127.0.0.1')
+    monkeypatch.setattr(main, 'docker', fake_docker(calls))
+    assert client.post('/services', headers=TOKEN, json={'name': 'Test', 'image': 'nginx:latest', 'env': env}).status_code == 422
+    assert not any(args[0] == 'run' for args in calls)
+
+
+def test_image_requirements_combine_metadata_and_checked_templates(monkeypatch):
+    monkeypatch.setenv('DKDIRECTOR_TOKEN', 'test-token')
+    def fake(*args, **kwargs):
+        if args[3] == '{{json .Config.ExposedPorts}}':
+            return '{"3002/tcp":{}}'
+        return json.dumps({'Volumes': {'/var/lib/app': {}}, 'Env': ['PATH=/bin', 'TOKEN=default-value']})
+    monkeypatch.setattr(main, 'docker', fake)
+    info = client.post('/image', headers=TOKEN, json={'image': 'traceapps/lifttrace:latest'}).json()
+    assert info['ports'] == [3002] and info['volumes'] == ['/var/lib/app'] and info['env'] == ['TOKEN']
+    assert [v['target'] for v in info['recipe']['volumes']] == ['/data/db', '/data/uploads']
+    assert 'default-value' not in json.dumps(info)
+    assert client.post('/image', headers=TOKEN, json={'image': 'nginx:latest'}).json()['recipe'] is None
+    assert client.post('/image', json={'image': 'nginx:latest'}).status_code == 403

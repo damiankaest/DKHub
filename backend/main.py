@@ -273,6 +273,7 @@ class DirectorRequest(BaseModel):
     image: str = Field(min_length=3, max_length=200)
     port: int | None = Field(default=None, ge=1, le=65535)
     volumes: list[dict[str, str]] = Field(default_factory=list, max_length=16)
+    env: list[dict[str, str]] = Field(default_factory=list, max_length=64)
 
 
 class DirectorRestoreRequest(BaseModel):
@@ -359,6 +360,16 @@ def save_service_tile(service_id: str, name: str, image: str, url: str) -> AppEn
             url=url, mode="embed", label="Docker")
         save_catalog([*entries, tile])
         return tile
+
+
+class DirectorImage(BaseModel):
+    image: str = Field(min_length=3, max_length=200)
+
+
+@app.post("/api/director/image")
+def director_image(payload: DirectorImage, request: Request, admin_password: str = Header(default="", alias="X-DKHub-Admin")):
+    authorize(request, admin_password)
+    return director_request("/image", "POST", payload.model_dump())
 
 
 @app.post("/api/director/install", status_code=201)

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthRequired } from './auth';
+import { transition } from './transition';
 import { ThemeStudio } from './themes/ThemeStudio';
 import { Icon } from './Icon';
 
@@ -38,7 +39,7 @@ export function AdminSettings({ onClose, appearance, onStartTour }) {
         {authRequired && <label>Admin-Passwort<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password"/></label>}
         <button className="button primary" disabled={busy}>{busy ? 'Prüft …' : authRequired ? 'Anmelden' : 'Erneut laden'}</button></form></> : <>
       <nav className="segmented settings-pages" aria-label="Einstellungsbereiche">{[['design','Design-Studio','palette'],['ai','KI-Zugänge','spark']].map(([id,label,icon])=>
-        <button type="button" key={id} aria-pressed={page === id} disabled={busy} onClick={()=>{setPage(id);setMessage(null);}}><Icon name={icon} size={16}/>{label}</button>)}</nav>
+        <button type="button" key={id} aria-pressed={page === id} disabled={busy} onClick={()=>transition(()=>{setPage(id);setMessage(null);})}><Icon name={icon} size={16}/>{label}</button>)}</nav>
       {page === 'design' ? <ThemeStudio password={password} appearance={appearance} aiReady={data.enabled && data.openai_configured}/> :
         <form className="add-form" onSubmit={save}><div className="section-intro"><h2>KI-Zugänge</h2><p>Für die Chatsteuerung genügt TypeSafe (Jev). OpenAI ist optional für Empfehlungen, freie Antworten und Entwürfe. Schlüssel bleiben auf dem Server; verwende zum Eingeben localhost oder HTTPS.</p></div>
           <label className="check-line"><input type="checkbox" checked={data.enabled} onChange={e=>setData({...data,enabled:e.target.checked})}/>KI aktivieren</label>

@@ -23,18 +23,18 @@ export function volumePayload(rows) {
   return volumes;
 }
 
-export function VolumeFields({ rows, onChange, disabled }) {
+export function VolumeFields({ rows, onChange, disabled, open }) {
   const nextId = useRef(0);
   function update(id, field, value) {
     onChange(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
   }
 
-  return <details className="service-more">
+  return <details className="service-more" open={open || undefined}>
     <summary>Dauerhafte Daten{rows.length > 0 && ` (${rows.length})`}<Icon name="down" size={15} /></summary>
     <p>Optional. Schau in der Anleitung des Images nach dem Datenpfad. Ein Volume erhält die Daten beim Stoppen und Starten, wenn die App tatsächlich in diesen Pfad schreibt.</p>
     <div className="director-storage">
-      {rows.map(({ id, key, target }, index) => <fieldset className="storage-fields" key={id} disabled={disabled}>
-        <legend>Volume {index + 1}</legend>
+      {rows.map(({ id, key, target, label }, index) => <fieldset className="storage-fields" key={id} disabled={disabled}>
+        <legend>{label || `Volume ${index + 1}`}</legend>
         <label className="director-label">Schlüssel<input maxLength={32} placeholder="z. B. daten" value={key} onChange={event => update(id, 'key', event.target.value)} autoCapitalize="none" spellCheck={false} /></label>
         <label className="director-label">Container-Mountpfad<input maxLength={255} placeholder="/data" value={target} onChange={event => update(id, 'target', event.target.value)} autoCapitalize="none" spellCheck={false} /></label>
         <button type="button" className="button quiet" aria-label={`Volume ${index + 1} entfernen`} onClick={() => onChange(rows.filter(row => row.id !== id))}>Entfernen</button>

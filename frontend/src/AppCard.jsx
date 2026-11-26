@@ -50,7 +50,7 @@ export function AppCard({ app, theme, onOpen, favorite, onFavorite, active, hidd
       {app.image && !active && imageError!==app.image && <img className="card-image" src={app.image} alt="" loading="lazy" onError={()=>setImageError(app.image)}/>}
       {art && <><ThemeArt motif={theme.motif} motion={theme.motion}/><span className="card-monogram" aria-hidden="true">{initials}</span></>}
       {frame && <iframe title={'Vorschau '+app.name} src={app.url} loading="lazy" referrerPolicy="no-referrer" tabIndex={active?0:-1} onLoad={()=>setLoaded(app.url)}/>}
-      {frame && loaded!==app.url && <span className="card-loading" aria-hidden="true">Wird geladen …</span>}
+      {frame && <span className={'card-loading'+(loaded===app.url?' done':'')} aria-hidden="true">Wird geladen …</span>}
       {!active && <span className="cover-badge"><Icon name={embed?'window':'external'} size={13}/>{label}</span>}
       {!active && <span className="card-play" aria-hidden="true"><Icon name={embed?'next':'external'} size={18}/></span>}
     </div>

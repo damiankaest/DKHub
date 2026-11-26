@@ -113,3 +113,32 @@ test('TV mode keeps the focused card of a row completely visible', async ({ page
   const card = await page.locator('.card').nth(2).boundingBox();
   expect(card.x + card.width).toBeLessThanOrEqual(1280);
 });
+
+test('an app grows out of its card and shrinks back without reloading', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('dkhub-tour', 'done');
+    // Record which element carries the zoom name before and after each change of view.
+    const start = document.startViewTransition?.bind(document);
+    window.zooms = [];
+    if (!start) return;
+    const named = () => [...document.querySelectorAll('*')].find(el => el.style?.viewTransitionName === 'app-zoom')?.className || null;
+    document.startViewTransition = update => {
+      const entry = { from: named() };
+      window.zooms.push(entry);
+      return start(() => { update(); queueMicrotask(() => { entry.to = named(); }); });
+    };
+  });
+  await page.goto('/');
+  const frame = page.locator('iframe[title="Vorschau DKCoach"]');
+  await expect(frame.contentFrame().getByRole('heading', { name: 'Hallo aus deiner Demo-App!' })).toBeVisible();
+  await frame.evaluate(element => { element.contentWindow.marker = 'same'; });
+  await page.getByRole('button', { name: 'DKCoach öffnen', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'DKCoach schließen' })).toBeVisible();
+  await page.getByRole('button', { name: 'Übersicht' }).click();
+  await expect(page.getByRole('heading', { name: 'App-Bibliothek' })).toBeVisible();
+  expect(await frame.evaluate(element => element.contentWindow.marker)).toBe('same');
+  const zooms = await page.evaluate(() => window.zooms);
+  expect(zooms).toEqual([{ from: 'card-preview', to: 'card-preview' }, { from: 'card-preview', to: 'card-preview' }]);
+  // No name stays behind, so the next transition starts clean.
+  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('*')].filter(el => el.style?.viewTransitionName).length)).toBe(0);
+});

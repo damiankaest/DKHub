@@ -149,6 +149,8 @@ DKDirector ist ein eigener Prozess im Verzeichnis `director/`. Er steuert nur Co
 
 Für die erste Version sind nur einfache einzelne Web-Container vorgesehen. Volumes, Datenbanken, Konfigurationsvariablen, automatische Updates und der Upload eigener Image-Dateien sind noch nicht enthalten. Ohne Volume können Daten beim Entfernen des Containers verloren gehen. Nur Images installieren, denen du vertraust: Container können Netzwerkzugriff und weitreichende Auswirkungen haben.
 
+Nach der Auswahl prüft DKHub, was die App braucht: im Image deklarierte Datenordner und, für geprüfte Apps (derzeit LiftTrace), eine Vorlage mit Volumes und Umgebungsvariablen. Volumes und Variablen lassen sich vor der Installation ändern und ergänzen. Apps mit einer Datenbank in einem zweiten Container werden noch nicht unterstützt. Die Variablen stehen in der Container-Konfiguration (`docker inspect`), nicht in DKHub-Backups.
+
 ### Linux: optional aktivieren
 
 Docker Engine und Zugriff auf Docker für den ausführenden Benutzer sind erforderlich. Die **explizite IPv4-Adresse des Servers im Heimnetz** eintragen (kein `0.0.0.0`); darauf werden neue Dienste mit einem automatisch gewählten freien Port (20000–29999) erreichbar. Der Port bleibt dem Dienst auch nach Neustarts fest zugeordnet; die IP-Adresse sollte dafür ebenfalls fest vergeben sein (zum Beispiel im Router). Früher installierte Dienste behalten ihren wechselnden Port, bis sie neu angelegt werden. Der DKDirector selbst lauscht ausschließlich auf `127.0.0.1:8765`. DKHub und Director laufen hier auf demselben Host.

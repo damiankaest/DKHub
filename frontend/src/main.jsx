@@ -19,6 +19,7 @@ import { Tour } from './tour/Tour';
 import { finishTour, tourDone } from './tour/tourStorage';
 import { useAppearance } from './themes/useAppearance';
 import { loadIds, saveIds, rememberRecent, toggleFavorite } from './navigation';
+import { appFrame, transition } from './transition';
 import './styles.css';
 
 function App() {
@@ -170,6 +171,23 @@ function App() {
       target?.focus({preventScroll:true});
     });
   }
+  // Clicks change the view softly. An embedded app grows out of the picture that was clicked.
+  function launch(app,from=appFrame(app.id)) {
+    if(app.mode!=='embed'){openApp(app);return;}
+    transition(()=>openApp(app),{from,to:()=>appFrame(app.id)});
+  }
+  // Leaving an app lets it shrink back to its card.
+  function shrink(id,update) {
+    transition(update,{from:id?appFrame(id):null,to:()=>{
+      const card=appFrame(id);
+      card?.scrollIntoView({block:'nearest',inline:'nearest'});
+      return card;
+    }});
+  }
+  const goHome=()=>shrink(viewer?selected.id:null,()=>home());
+  const show=(name,app=null,back=null)=>transition(()=>manage(name,app,false,back));
+  const closePanel=()=>transition(()=>setPanel(null));
+  const soft=setter=>value=>transition(()=>setter(value));
   const activeId=viewer?selected.id:null;
   const tools=useHubTools({apps,favorites,recent,status,panel:section,activeId,
     close:id=>flushSync(()=>closeApp(id,false)),
@@ -178,9 +196,9 @@ function App() {
     add:()=>flushSync(()=>manage('add',null,true)),
   });
   const viewerActions = selected && <>
-    <button className="button quiet back-to-library" onClick={()=>home()}><Icon name="back" size={17}/><span>Übersicht</span></button>
+    <button className="button quiet back-to-library" onClick={goHome}><Icon name="back" size={17}/><span>Übersicht</span></button>
     <strong className="viewer-title">{selected.name}</strong>
-    <button className="button secondary compact-button" onClick={()=>{setChoosing(true);resetFilter();if(tv)focusTile();}} disabled={openIds.length>=4} aria-label={'+ Fenster ('+openIds.length+'/4)'}><Icon name="plus" size={15}/>Fenster <small>{openIds.length}/4</small></button>
+    <button className="button secondary compact-button" onClick={()=>transition(()=>{setChoosing(true);resetFilter();if(tv)focusTile();})} disabled={openIds.length>=4} aria-label={'+ Fenster ('+openIds.length+'/4)'}><Icon name="plus" size={15}/>Fenster <small>{openIds.length}/4</small></button>
     <button className="icon-button" aria-pressed={favorites.includes(focusId)} aria-label={favorites.includes(focusId)?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen'} onClick={()=>favorite(focusId)}><Icon name="star" size={17} filled={favorites.includes(focusId)}/></button>
   </>;
   // Carry on with the last opened app, otherwise the first favorite. Only on the unfiltered start page.
@@ -189,35 +207,35 @@ function App() {
   const showSpotlight = spotlightApp && !viewer && !tv && !choosing && scope==='all' && !needle && !currentCategory;
   return <div className={'shell'+(chat?' with-assistant':'')+(tv?' tv-mode':'')+(viewer?' viewer':'')}>
     <a className="skip-link" href="#content">Zum Inhalt</a>
-    <HubNav apps={apps} favorites={favorites} recent={recent} selected={selected} panel={section} onPanel={manage} onHome={()=>home()} tvMode={tv} onTv={toggleTV} onOpen={openApp} onChat={openChat} chatOpen={chat} theme={appearance.visible} inLibrary={inLibrary}/>
+    <HubNav apps={apps} favorites={favorites} recent={recent} selected={selected} panel={section} onPanel={show} onHome={goHome} tvMode={tv} onTv={toggleTV} onOpen={app=>launch(app)} onChat={()=>transition(openChat)} chatOpen={chat} theme={appearance.visible} inLibrary={inLibrary}/>
     <main id="content" tabIndex={-1} className={viewer?'main viewer-main':'main'}>
-      {section==='admin' && <AdminSettings onClose={()=>setPanel(null)} appearance={appearance} onStartTour={startTour}/>}
-      {section==='sort' && <ReorderApps apps={apps} onCancel={()=>setPanel(null)} onSaved={ordered=>{setApps(ordered);setPanel(null);resetFilter();}}/>}
-      {section==='director' && <Director apps={apps} favorites={favorites} onFavorite={favorite} onConfigure={app=>manage('edit',app,false,'director')} onOpen={openApp} onClose={()=>setPanel(null)} onCatalogChanged={async()=>setApps(await getApps())}/>}
-      {(section==='edit'||section==='add') && <AddApp key={panel.app?.id||'new'} app={panel.app} categories={categories} onCancel={leavePanel} onAdded={onSave}/>}
-      {section==='remove' && <RemoveApp app={panel.app} onCancel={()=>setPanel(null)} onRemoved={onRemove}/>}
+      {section==='admin' && <AdminSettings onClose={closePanel} appearance={appearance} onStartTour={startTour}/>}
+      {section==='sort' && <ReorderApps apps={apps} onCancel={closePanel} onSaved={ordered=>transition(()=>{setApps(ordered);setPanel(null);resetFilter();})}/>}
+      {section==='director' && <Director apps={apps} favorites={favorites} onFavorite={favorite} onConfigure={app=>show('edit',app,'director')} onOpen={app=>launch(app,document.activeElement?.closest('.service-card'))} onClose={closePanel} onCatalogChanged={async()=>setApps(await getApps())}/>}
+      {(section==='edit'||section==='add') && <AddApp key={panel.app?.id||'new'} app={panel.app} categories={categories} onCancel={()=>transition(leavePanel)} onAdded={app=>transition(()=>onSave(app))}/>}
+      {section==='remove' && <RemoveApp app={panel.app} onCancel={closePanel} onRemoved={id=>transition(()=>onRemove(id))}/>}
       {viewer && (openIds.length>1 || selected.mode==='external') && <div className="viewer-toolbar">{viewerActions}</div>}
       {viewer && selected.mode==='external' && <div className="catalog-state"><Icon name="external"/><h2>{selected.name}</h2><p>Diese Anwendung öffnet in einem eigenen Tab.</p><a className="button primary" href={selected.url} onClick={()=>openApp(selected)} target="_blank" rel="noopener noreferrer">Im neuen Tab öffnen</a></div>}
       <div className={'catalog'+(viewer?' in-app':'')} hidden={!!section || (viewer && selected.mode==='external')}>
         {!viewer && <div ref={catalogHeading} tabIndex={-1}>
           {tv && <div className="tv-tools"><span><Icon name="tv" size={18}/> TV-Modus</span><button className="button quiet tv-exit" onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();focusTile();}}} onClick={toggleTV}>TV-Modus beenden</button></div>}
-          <CatalogTools count={apps.length} categories={categories} category={currentCategory} setCategory={setCategory} query={query} setQuery={setQuery} choosing={choosing} onBack={()=>setChoosing(false)} onAdd={()=>manage('add')} scope={scope} setScope={setScope} favoriteCount={apps.filter(a=>favorites.includes(a.id)).length} status={status}/>
-          {showSpotlight && <Spotlight key={spotlightApp.id} app={spotlightApp} reason={recentApp?'Weitermachen':'Dein Favorit'} theme={appearance.visible} favorite={favorites.includes(spotlightApp.id)} onOpen={()=>openApp(spotlightApp)} onFavorite={()=>favorite(spotlightApp.id)}/>}
+          <CatalogTools count={apps.length} categories={categories} category={currentCategory} setCategory={soft(setCategory)} query={query} setQuery={setQuery} choosing={choosing} onBack={()=>transition(()=>setChoosing(false))} onAdd={()=>show('add')} scope={scope} setScope={soft(setScope)} favoriteCount={apps.filter(a=>favorites.includes(a.id)).length} status={status}/>
+          {showSpotlight && <Spotlight key={spotlightApp.id} app={spotlightApp} reason={recentApp?'Weitermachen':'Dein Favorit'} theme={appearance.visible} favorite={favorites.includes(spotlightApp.id)} onOpen={e=>launch(spotlightApp,e.currentTarget.closest('.spotlight'))} onFavorite={()=>favorite(spotlightApp.id)}/>}
         </div>}
         <div ref={cards} className="cards" data-windows={openIds.length} onKeyDown={tv && !viewer?e=>handleTvNavigation(e,toggleTV):undefined}>
           {categories.map(group=>{
             const list=byCategory.get(group), n=list.filter(a=>visibleIds.has(a.id)).length;
             return <CategoryRow key={group} name={group} visibleCount={n} hidden={!n} viewing={viewer}>
               {list.map(app=><AppCard key={app.id} app={app} theme={appearance.visible} active={viewer && openIds.includes(app.id)} hidden={!visibleIds.has(app.id)}
-                soloControls={viewer && openIds.length===1?viewerActions:null} favorite={favorites.includes(app.id)} onOpen={()=>openApp(app)} onFavorite={()=>favorite(app.id)}
-                onRemove={()=>manage('remove',app)} onEdit={()=>manage('edit',app)} onClose={()=>closeApp(app.id)} onFocus={()=>{setFocusId(app.id);if(app.route)navigate('/'+app.route,true);}}/>)}
+                soloControls={viewer && openIds.length===1?viewerActions:null} favorite={favorites.includes(app.id)} onOpen={()=>launch(app)} onFavorite={()=>favorite(app.id)}
+                onRemove={()=>show('remove',app)} onEdit={()=>show('edit',app)} onClose={()=>shrink(app.id,()=>closeApp(app.id))} onFocus={()=>{setFocusId(app.id);if(app.route)navigate('/'+app.route,true);}}/>)}
             </CategoryRow>;
           })}
         </div>
-        {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={resetFilter} add={()=>manage('add')}/>}
+        {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={()=>transition(resetFilter)} add={()=>show('add')}/>}
       </div>
     </main>
-    <HubChat activeId={activeId} visible={chat} onClose={closeChat} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
+    <HubChat activeId={activeId} visible={chat} onClose={restore=>transition(()=>closeChat(restore))} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
     {tour && <Tour onClose={closeTour}/>}
   </div>;
 }

@@ -9,8 +9,10 @@ import re
 import secrets
 import socket
 import subprocess
+import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query
@@ -20,6 +22,7 @@ from pydantic import BaseModel, Field
 from .service_data import (MountRequest, backup_router, save_definition,
                            service_data_operation, storage_issue, volume_engine, volume_view)
 from .volumes import BackupError, Volume, validate_mounts
+from .recipes import recipe_for
 
 app = FastAPI(title="DKDirector", docs_url=None, redoc_url=None, openapi_url=None)
 LABEL = "io.dkhub.director=managed"
@@ -205,8 +208,28 @@ def port_stays_blocked(service_id: str) -> bool:
     return inspect_service(service_id)["port_blocked"]
 
 
-def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=()) -> int:
+def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=(), env=()) -> int:
     """Start a new service and return the host port assigned to it."""
+    with env_file(env) as env_args:
+        return start_container(service_id, name, image, port, ip, volumes, env_args)
+
+
+@contextmanager
+def env_file(env):
+    """Pass settings through a short-lived file, so secrets never appear in a process list."""
+    if not env:
+        yield []
+        return
+    handle, path = tempfile.mkstemp(prefix="dkhub-env-")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as output:
+            output.writelines(f"{key}={value}\n" for key, value in env)
+        yield ["--env-file", path]
+    finally:
+        os.unlink(path)
+
+
+def start_container(service_id: str, name: str, image: str, port: int, ip: str, volumes, env_args) -> int:
     rejected: set[int] = set()
     mounts = [arg for volume in volumes for arg in ("--mount", volume.mount())]
     # The lock stops parallel installs from picking the same port.
@@ -220,7 +243,7 @@ def run_service(service_id: str, name: str, image: str, port: int, ip: str, volu
                        "--name", service_id, "--label", LABEL,
                        "--label", f"io.dkhub.name={name}", "--label", f"io.dkhub.port={port}",
                        "--label", f"io.dkhub.host-ip={ip}", "--label", f"io.dkhub.host-port={host_port}",
-                       "--publish", f"{ip}:{host_port}:{port}", *mounts, "--", image, timeout=30)
+                       "--publish", f"{ip}:{host_port}:{port}", *mounts, *env_args, "--", image, timeout=30)
             except HTTPException as exc:
                 if exc.status_code != 502:
                     raise
@@ -248,11 +271,22 @@ def probe(ip: str, port: int) -> int | None:
         connection.close()
 
 
+class EnvRequest(BaseModel):
+    # One line per variable; line breaks would smuggle further variables into the file.
+    key: str = Field(max_length=128, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    value: str = Field(max_length=4096, pattern=r"^[^\r\n\x00]*$")
+
+
+class ImageRequest(BaseModel):
+    image: str = Field(min_length=3, max_length=200)
+
+
 class InstallRequest(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     image: str = Field(min_length=3, max_length=200)
     port: int | None = Field(default=None, ge=1, le=65535)
     volumes: list[MountRequest] = Field(default_factory=list, max_length=16)
+    env: list[EnvRequest] = Field(default_factory=list, max_length=64)
 
 
 @app.get('/health')
@@ -287,11 +321,31 @@ def list_services(x_director_token: str = Header(default="")):
     return services
 
 
+def check_image(image: str) -> None:
+    if not IMAGE.fullmatch(image) or '..' in image or '//' in image:
+        raise HTTPException(422, "Use a Docker Hub image with an explicit tag")
+
+
+@app.post('/image')
+def image_requirements(payload: ImageRequest, x_director_token: str = Header(default="")):
+    """What an image asks for, loading it first. Values of image defaults are not returned."""
+    check_token(x_director_token)
+    check_image(payload.image)
+    ports = image_ports(payload.image)
+    try:
+        config = json.loads(docker("image", "inspect", "--format", "{{json .Config}}", payload.image)) or {}
+        volumes = sorted(config.get("Volumes") or {})
+        names = [entry.split("=", 1)[0] for entry in config.get("Env") or []]
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise HTTPException(502, "Invalid Docker response") from exc
+    return {"ports": ports, "volumes": volumes, "env": [name for name in names if name not in {"PATH", "HOSTNAME"}],
+            "recipe": recipe_for(payload.image)}
+
+
 @app.post('/services', status_code=201)
 def install(payload: InstallRequest, x_director_token: str = Header(default="")):
     check_token(x_director_token)
-    if not IMAGE.fullmatch(payload.image) or '..' in payload.image or '//' in payload.image:
-        raise HTTPException(422, "Use a Docker Hub image with an explicit tag")
+    check_image(payload.image)
     name = payload.name.strip()
     if not name or any(ord(char) < 32 for char in name):
         raise HTTPException(422, "Invalid service name")
@@ -316,7 +370,9 @@ def install(payload: InstallRequest, x_director_token: str = Header(default=""))
             volumes = volume_engine().provision(service_id, mounts)
         except BackupError as exc:
             raise HTTPException(502, f"Could not provision volumes for {service_id}: {exc}") from exc
-    host_port = run_service(service_id, name, payload.image, port, ip, volumes)
+    if len({item.key for item in payload.env}) != len(payload.env):
+        raise HTTPException(422, "Each setting may only be given once")
+    host_port = run_service(service_id, name, payload.image, port, ip, volumes, [(item.key, item.value) for item in payload.env])
     if volumes:
         try:
             save_definition(service_id, name, payload.image, port, ip, host_port, volumes)

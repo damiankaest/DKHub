@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { removeApp } from './api';
 import { useAuthRequired } from './auth';
+import { transition } from './transition';
 import { Icon } from './Icon';
 import { BackupPanel } from './director/BackupPanel';
 import { InstallPanel } from './director/InstallPanel';
@@ -88,6 +89,7 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
       if (!stopping) { await onCatalogChanged(); check(service.id, 30); }
     });
   }
+  const inspect = image => call('/api/director/image', password, { image });
   const search = query => call(`/api/director/search?${new URLSearchParams({ q: query })}`, password);
   // Resolves with the port options if one has to be chosen, otherwise with null.
   async function install(details) {
@@ -107,7 +109,7 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
     catch (err) { setNotice({ type: 'error', text: `${service.name} wurde installiert, die Liste konnte aber nicht geladen werden. ${err.message}` }); }
     return null;
   }
-  function show(next) { setView(next); setNotice(null); }
+  function show(next) { transition(() => { setView(next); setNotice(null); }); }
 
   return <section className="director-panel" aria-labelledby="director-title">
     <div className="director-head"><div><div className="eyebrow">DIENSTE</div><h1 id="director-title">Dienste verwalten</h1><p>Apps, die auf deinem Rechner zu Hause laufen.</p></div><button type="button" className="button secondary" onClick={onClose}>Zurück</button></div>
@@ -136,6 +138,6 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
       })}</div>
     </div>
     {/* Stays mounted so a search survives switching views; a finished installation starts it fresh. */}
-    <div hidden={view !== 'add'}><InstallPanel key={installed} locked={locked} onSearch={search} onInstall={install} /></div>
+    <div hidden={view !== 'add'}><InstallPanel key={installed} locked={locked} onSearch={search} onInspect={inspect} onInstall={install} /></div>
   </section>;
 }
