@@ -14,6 +14,9 @@ import { RemoveApp } from './RemoveApp';
 import { Director } from './Director';
 import { ReorderApps } from './ReorderApps';
 import { HubChat } from './HubChat';
+import { Spotlight } from './Spotlight';
+import { Tour } from './tour/Tour';
+import { finishTour, tourDone } from './tour/tourStorage';
 import { useAppearance } from './themes/useAppearance';
 import { loadIds, saveIds, rememberRecent, toggleFavorite } from './navigation';
 import './styles.css';
@@ -29,6 +32,7 @@ function App() {
   const [panel,setPanel] = useState(null);
   const [tv,setTV] = useState(false);
   const [chat,setChat] = useState(false);
+  const [tour,setTour] = useState(false);
   const [query,setQuery] = useState('');
   const [category,setCategory] = useState('');
   const [scope,setScope] = useState('all');
@@ -73,6 +77,12 @@ function App() {
     window.addEventListener('popstate',sync);
     return ()=>window.removeEventListener('popstate',sync);
   },[status,apps]);
+  // New visitors get the tour once, on the start page only, never over a deep-linked app.
+  useEffect(()=>{
+    if(status==='ready' && location.pathname==='/' && !tourDone())setTour(true);
+  },[status]);
+  function startTour() {home(false);resetFilter();setChat(false);setTV(false);setTour(true);}
+  function closeTour() {finishTour();setTour(false);}
   useEffect(()=>{
     if(category && !apps.some(a=>a.category===category))setCategory('');
   },[apps,category]);
@@ -166,16 +176,20 @@ function App() {
     add:()=>flushSync(()=>manage('add',null,true)),
   });
   const viewerActions = selected && <>
-    <button className="button quiet back-to-library" onClick={()=>home()}><Icon name="back" size={17}/>Übersicht</button>
+    <button className="button quiet back-to-library" onClick={()=>home()}><Icon name="back" size={17}/><span>Übersicht</span></button>
     <strong className="viewer-title">{selected.name}</strong>
     <button className="button secondary compact-button" onClick={()=>{setChoosing(true);resetFilter();if(tv)focusTile();}} disabled={openIds.length>=4} aria-label={'+ Fenster ('+openIds.length+'/4)'}><Icon name="plus" size={15}/>Fenster <small>{openIds.length}/4</small></button>
     <button className="icon-button" aria-pressed={favorites.includes(focusId)} aria-label={favorites.includes(focusId)?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen'} onClick={()=>favorite(focusId)}><Icon name="star" size={17} filled={favorites.includes(focusId)}/></button>
   </>;
+  // Carry on with the last opened app, otherwise the first favorite. Only on the unfiltered start page.
+  const recentApp = recent.map(id=>apps.find(a=>a.id===id)).find(Boolean);
+  const spotlightApp = recentApp || favorites.map(id=>apps.find(a=>a.id===id)).find(Boolean);
+  const showSpotlight = spotlightApp && !viewer && !tv && !choosing && scope==='all' && !needle && !currentCategory;
   return <div className={'shell'+(chat?' with-assistant':'')+(tv?' tv-mode':'')+(viewer?' viewer':'')}>
     <a className="skip-link" href="#content">Zum Inhalt</a>
     <HubNav apps={apps} favorites={favorites} recent={recent} selected={selected} panel={section} onPanel={manage} onHome={()=>home()} tvMode={tv} onTv={toggleTV} onOpen={openApp} onChat={openChat} chatOpen={chat} theme={appearance.visible} inLibrary={inLibrary}/>
     <main id="content" tabIndex={-1} className={viewer?'main viewer-main':'main'}>
-      {section==='admin' && <AdminSettings onClose={()=>setPanel(null)} appearance={appearance}/>}
+      {section==='admin' && <AdminSettings onClose={()=>setPanel(null)} appearance={appearance} onStartTour={startTour}/>}
       {section==='sort' && <ReorderApps apps={apps} onCancel={()=>setPanel(null)} onSaved={ordered=>{setApps(ordered);setPanel(null);resetFilter();}}/>}
       {section==='director' && <Director apps={apps} favorites={favorites} onFavorite={favorite} onConfigure={app=>manage('edit',app,false,'director')} onOpen={openApp} onClose={()=>setPanel(null)} onCatalogChanged={async()=>setApps(await getApps())}/>}
       {(section==='edit'||section==='add') && <AddApp key={panel.app?.id||'new'} app={panel.app} categories={categories} onCancel={leavePanel} onAdded={onSave}/>}
@@ -185,7 +199,8 @@ function App() {
       <div className={'catalog'+(viewer?' in-app':'')} hidden={!!section || (viewer && selected.mode==='external')}>
         {!viewer && <div ref={catalogHeading} tabIndex={-1}>
           {tv && <div className="tv-tools"><span><Icon name="tv" size={18}/> TV-Modus</span><button className="button quiet tv-exit" onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();focusTile();}}} onClick={toggleTV}>TV-Modus beenden</button></div>}
-          <CatalogTools count={apps.length} categories={categories} category={currentCategory} setCategory={setCategory} query={query} setQuery={setQuery} choosing={choosing} onBack={()=>setChoosing(false)} onAdd={()=>manage('add')} scope={scope} setScope={setScope} favoriteCount={apps.filter(a=>favorites.includes(a.id)).length}/>
+          <CatalogTools count={apps.length} categories={categories} category={currentCategory} setCategory={setCategory} query={query} setQuery={setQuery} choosing={choosing} onBack={()=>setChoosing(false)} onAdd={()=>manage('add')} scope={scope} setScope={setScope} favoriteCount={apps.filter(a=>favorites.includes(a.id)).length} status={status}/>
+          {showSpotlight && <Spotlight key={spotlightApp.id} app={spotlightApp} reason={recentApp?'Weitermachen':'Dein Favorit'} theme={appearance.visible} favorite={favorites.includes(spotlightApp.id)} onOpen={()=>openApp(spotlightApp)} onFavorite={()=>favorite(spotlightApp.id)}/>}
         </div>}
         <div ref={cards} className="cards" data-windows={openIds.length} onKeyDown={tv && !viewer?e=>handleTvNavigation(e,toggleTV):undefined}>
           {categories.map(group=>{
@@ -197,10 +212,11 @@ function App() {
             </CategoryRow>;
           })}
         </div>
-        {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={resetFilter}/>}
+        {!viewer && <CatalogState status={status} total={apps.length} visible={visibleIds.size} favoritesOnly={scope==='favorites'} retry={()=>setAttempt(n=>n+1)} reset={resetFilter} add={()=>manage('add')}/>}
       </div>
     </main>
     <HubChat visible={chat} onClose={closeChat} apps={apps} tools={tools} onExternal={openApp} context={section?'Verwaltung':selected?.name || 'App-Bibliothek'}/>
+    {tour && <Tour onClose={closeTour}/>}
   </div>;
 }
 

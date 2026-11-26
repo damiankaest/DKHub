@@ -32,3 +32,9 @@
   .back-to-library svg,.viewer .compact-button svg {display:none}
   .viewer-title {font-size:.78rem}
 }
+/* Narrow screens: icons with hidden, still readable, labels instead of crowded text. */
+@media(max-width:540px) {
+  .viewer .back-to-library svg,.window-tools .address-button svg {display:inline}
+  .viewer .back-to-library span,.window-tools .address-label {position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%)}
+  .viewer .back-to-library,.window-tools .address-button {min-width:40px; justify-content:center}
+}
