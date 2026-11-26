@@ -3,20 +3,22 @@ import { removeApp } from './api';
 import { useAuthRequired } from './auth';
 import { Icon } from './Icon';
 import { BackupPanel } from './director/BackupPanel';
+import { ForgePanel } from './forge/ForgePanel';
 import { InstallPanel } from './director/InstallPanel';
 import { Notice } from './director/Notice';
 import { ServiceCard } from './director/ServiceCard';
 import { isActive, tileId } from './director/serviceStatus';
 
-async function call(path, password, body) {
+async function call(path, password, body, method = 'POST') {
   const response = await fetch(path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-DKHub-Admin': password },
+    method, headers: { 'Content-Type': 'application/json', 'X-DKHub-Admin': password },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 403) throw new Error('Admin-Passwort oder Anfrage ist ungültig.');
   if (!response.ok) {
     const detail = await response.json().then(data => data.detail, () => null);
-    throw Object.assign(new Error(typeof detail === 'string' ? detail : 'Aktion fehlgeschlagen. Prüfe den Dienstzustand, bevor du erneut versuchst.'), { status: response.status });
+    const validation = Array.isArray(detail) ? detail.map(item => item.msg).filter(Boolean).join(' ') : '';
+    throw Object.assign(new Error(typeof detail === 'string' ? detail : validation || 'Aktion fehlgeschlagen. Prüfe den Dienstzustand, bevor du erneut versuchst.'), { status: response.status });
   }
   return response.json();
 }
@@ -112,9 +114,10 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
   return <section className="director-panel" aria-labelledby="director-title">
     <div className="director-head"><div><div className="eyebrow">DIENSTE</div><h1 id="director-title">Dienste verwalten</h1><p>Apps, die auf deinem Rechner zu Hause laufen.</p></div><button type="button" className="button secondary" onClick={onClose}>Zurück</button></div>
     {authRequired && <label className="director-label director-password">Admin-Passwort<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /></label>}
-    <div className="segmented director-views" role="group" aria-label="Ansicht">
+    <div className="segmented director-views forge-nav" role="group" aria-label="Ansicht">
       <button type="button" aria-pressed={view === 'list'} onClick={() => show('list')}><Icon name="server" size={16} />Meine Dienste</button>
       <button type="button" aria-pressed={view === 'add'} onClick={() => show('add')}><Icon name="plus" size={16} />Neuer Dienst</button>
+      <button type="button" aria-pressed={view === 'forge'} onClick={() => show('forge')}><Icon name="spark" size={16} />Neuen eigenen Dienst erstellen</button>
     </div>
     <div hidden={view !== 'list'}>
       {notice && <Notice type={notice.type}>{notice.text}</Notice>}
@@ -137,5 +140,7 @@ export function Director({ apps, favorites, onFavorite, onConfigure, onOpen, onC
     </div>
     {/* Stays mounted so a search survives switching views; a finished installation starts it fresh. */}
     <div hidden={view !== 'add'}><InstallPanel key={installed} locked={locked} onSearch={search} onInstall={install} /></div>
+    <div hidden={view !== 'forge'}><ForgePanel locked={locked} visible={view === 'forge'} onCompleted={onCatalogChanged}
+      request={(path, body, method) => call(path, password, body, method)} /></div>
   </section>;
 }

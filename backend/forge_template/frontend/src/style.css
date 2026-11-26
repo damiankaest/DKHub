@@ -1,0 +1,18 @@
+:root { font: 16px/1.55 system-ui, sans-serif; color: #162b25; background: #eef3ef; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(100% - 2rem, 64rem); margin: 0 auto; padding: clamp(1.5rem, 7vw, 6rem) 0; }
+header { background: #11392d; color: #f8fff8; padding: clamp(1.3rem, 5vw, 3.5rem); border-radius: 1rem; }
+h1 { font-size: clamp(2rem, 8vw, 4.4rem); line-height: 1.02; margin: 0; overflow-wrap: anywhere; }
+header p { max-width: 65ch; white-space: pre-wrap; }
+section { background: white; margin-top: 1rem; padding: clamp(1rem, 4vw, 2rem); border: 1px solid #cbd8d0; border-radius: 1rem; }
+h2 { margin-top: 0; }
+form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
+label { grid-column: 1 / -1; }
+input, button { font: inherit; min-height: 2.75rem; border-radius: .45rem; padding: .4rem .65rem; }
+input { border: 1px solid #7c9286; min-width: 0; }
+button { border: 1px solid #11392d; background: #11392d; color: white; }
+button:disabled { opacity: .65; }
+li, p { overflow-wrap: anywhere; }
+[role="alert"] { color: #931b24; }
+@media (max-width: 28rem) { form { grid-template-columns: 1fr; } }

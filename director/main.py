@@ -17,12 +17,13 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .service_data import (MountRequest, backup_router, save_definition,
+from .service_data import (MountRequest, backup_router, load_definition, save_definition,
                            service_data_operation, storage_issue, volume_engine, volume_view)
 from .volumes import BackupError, Volume, validate_mounts
 
 app = FastAPI(title="DKDirector", docs_url=None, redoc_url=None, openapi_url=None)
 LABEL = "io.dkhub.director=managed"
+FORGE_LABEL = "io.dkhub.forge"
 IMAGE = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})$")
 SERVICE = re.compile(r"^dkhub-[a-f0-9]{32}$")
 # Below the ephemeral ranges of Linux and Windows, so outgoing connections do not occupy these ports.
@@ -114,7 +115,8 @@ def service_view(item: dict) -> dict:
             "autostart": (host_config.get("RestartPolicy") or {}).get("Name") in {"always", "unless-stopped"},
             "host_port": int(mapped) if mapped and mapped.isdigit() else None,
             "host_ip": binding[0].get("HostIp") if binding else None,
-            "volumes": sorted(volumes, key=lambda entry: entry["key"])}
+            "volumes": sorted(volumes, key=lambda entry: entry["key"]),
+            **({"forge_project": labels[FORGE_LABEL]} if FORGE_LABEL in labels else {})}
 
 
 def inspect_service(service_id: str) -> dict:
@@ -205,10 +207,11 @@ def port_stays_blocked(service_id: str) -> bool:
     return inspect_service(service_id)["port_blocked"]
 
 
-def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=()) -> int:
+def run_service(service_id: str, name: str, image: str, port: int, ip: str, volumes=(), *, forge_id=None) -> int:
     """Start a new service and return the host port assigned to it."""
     rejected: set[int] = set()
     mounts = [arg for volume in volumes for arg in ("--mount", volume.mount())]
+    forge_label = ("--label", f"{FORGE_LABEL}={forge_id}") if forge_id else ()
     # The lock stops parallel installs from picking the same port.
     with INSTALL_LOCK:
         for _ in range(5):
@@ -220,7 +223,7 @@ def run_service(service_id: str, name: str, image: str, port: int, ip: str, volu
                        "--name", service_id, "--label", LABEL,
                        "--label", f"io.dkhub.name={name}", "--label", f"io.dkhub.port={port}",
                        "--label", f"io.dkhub.host-ip={ip}", "--label", f"io.dkhub.host-port={host_port}",
-                       "--publish", f"{ip}:{host_port}:{port}", *mounts, "--", image, timeout=30)
+                       "--publish", f"{ip}:{host_port}:{port}", *forge_label, *mounts, "--", image, timeout=30)
             except HTTPException as exc:
                 if exc.status_code != 502:
                     raise
@@ -236,11 +239,11 @@ def run_service(service_id: str, name: str, image: str, port: int, ip: str, volu
     raise HTTPException(409, "Docker hat mehrere Ports als belegt abgelehnt. Bitte später erneut versuchen.")
 
 
-def probe(ip: str, port: int) -> int | None:
+def probe(ip: str, port: int, path="/") -> int | None:
     """HTTP status of the start page, without following redirects. None means no HTTP answer."""
     connection = http.client.HTTPConnection(ip, port, timeout=3)
     try:
-        connection.request("GET", "/")
+        connection.request("GET", path)
         return connection.getresponse().status
     except (OSError, http.client.HTTPException):
         return None
@@ -384,3 +387,65 @@ def apply_state_change(service_id: str, action: str):
         docker("stop", "--", service_id, timeout=60)
         raise HTTPException(409, port_taken_message(service["host_port"]))
     return result
+
+
+class ForgeInstall(BaseModel):
+    name: str = Field(min_length=1, max_length=60, pattern=r"^[^\x00-\x1f\x7f]+$")
+    sqlite: bool
+
+
+def forge_identity(project_id):
+    if not re.fullmatch(r"[a-f0-9]{32}", project_id):
+        raise HTTPException(404, "DKForge-Projekt existiert nicht.")
+    return f"dkhub-{project_id}", f"dkforge/project-{project_id}:v1"
+
+
+def inspect_forge_service(project_id, service_id, image):
+    service = inspect_service(service_id)
+    if service.get("forge_project") != project_id or service["image"] != image:
+        raise HTTPException(409, f"Dienst-ID {service_id} ist bereits anderweitig belegt.")
+    return service
+
+
+@app.post("/forge/{project_id}/start")
+def start_forge(project_id: str, payload: ForgeInstall, x_director_token: str = Header(default="")):
+    check_token(x_director_token)
+    service_id, image = forge_identity(project_id)
+    ip = binding_ip()
+    volumes = [Volume(service_id, "data", "/data")] if payload.sqlite else []
+    with service_data_operation():
+        containers = docker("ps", "-a", "--filter", f"name=^/{service_id}$", "--format", "{{.Names}}")
+        if service_id in containers.splitlines():
+            service = inspect_forge_service(project_id, service_id, image)
+        else:
+            docker("image", "inspect", image)  # Forge only launches the locally built tag.
+            if volumes:
+                try:
+                    volumes = volume_engine().provision(service_id, [("data", "/data")])
+                except BackupError as exc:
+                    raise HTTPException(502, f"Volume für {service_id} konnte nicht bereitgestellt werden: {exc}") from exc
+            run_service(service_id, payload.name, image, 8000, ip, volumes, forge_id=project_id)
+            service = inspect_forge_service(project_id, service_id, image)
+        if service["volumes"] != list(map(volume_view, volumes)):
+            raise HTTPException(409, f"Die Volume-Zuordnung von {service_id} weicht vom Projektplan ab.")
+        if volumes and load_definition(service_id, required=False) is None:
+            try:
+                volume_engine().verify(volumes[0])
+                save_definition(service_id, service["name"], image, 8000,
+                                service["host_ip"], service["host_port"], volumes)
+            except (OSError, BackupError) as exc:
+                raise HTTPException(502, f"Dienst {service_id} existiert, seine Definition konnte nicht gespeichert werden: {exc}") from exc
+        if service["state"] in {"created", "exited", "dead"}:
+            return apply_state_change(service_id, "start")
+        return service
+
+
+@app.get("/forge/{project_id}/health")
+def forge_health(project_id: str, x_director_token: str = Header(default="")):
+    check_token(x_director_token)
+    service_id, image = forge_identity(project_id)
+    service = inspect_forge_service(project_id, service_id, image)
+    if service["state"] != "running" or not service["host_port"]:
+        return {"status": service["state"] if service["state"] != "running" else "port_blocked"}
+    code = probe(service["host_ip"], service["host_port"], "/health")
+    return {"status": "reachable" if code == 200 else "unreachable", "http_status": code}

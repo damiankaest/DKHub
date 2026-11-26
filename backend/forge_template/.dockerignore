@@ -1,0 +1,13 @@
+**
+!Dockerfile
+!plan.json
+!frontend/
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.js
+!frontend/src/
+!frontend/src/**
+!backend/
+!backend/app.py
+!backend/requirements.txt

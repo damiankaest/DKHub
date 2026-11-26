@@ -1,0 +1,67 @@
+"""The generated app serves a functional example and its own frontend."""
+
+from contextlib import closing
+import json
+import os
+from pathlib import Path
+import sqlite3
+from typing import Annotated
+
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, StringConstraints
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE if (HERE / "plan.json").exists() else HERE.parent
+PLAN = json.loads((ROOT / "plan.json").read_text(encoding="utf-8"))
+DATA = Path(os.environ.get("DKFORGE_DATA_DIR", ROOT / ".local"))
+app = FastAPI(title=PLAN["name"])
+
+
+class Note(BaseModel):
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+
+def connect():
+    if not PLAN["sqlite"]:
+        raise HTTPException(404, "Die Beispiel-Notizen benötigen SQLite.")
+    DATA.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(DATA / "app.sqlite3")
+
+
+def prepare(db):
+    db.execute("CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, text TEXT NOT NULL)")
+
+
+@app.get("/health")
+def health():
+    if PLAN["sqlite"]:
+        with closing(connect()) as db, db:
+            prepare(db)
+    return {"status": "ok"}
+
+
+@app.get("/api/project")
+def project():
+    return {key: PLAN[key] for key in ("name", "description", "design", "sqlite")}
+
+
+@app.get("/api/notes")
+def list_notes():
+    with closing(connect()) as db, db:
+        prepare(db)
+        return [{"id": key, "text": text} for key, text in
+                db.execute("SELECT id, text FROM notes ORDER BY id DESC LIMIT 50")]
+
+
+@app.post("/api/notes", status_code=201)
+def add_note(note: Note):
+    with closing(connect()) as db, db:
+        prepare(db)
+        saved = db.execute("INSERT INTO notes (text) VALUES (?)", (note.text,))
+        return {"id": saved.lastrowid, "text": note.text}
+
+
+static = HERE / "static" if (HERE / "static").is_dir() else ROOT / "frontend" / "dist"
+if static.is_dir():
+    app.mount("/", StaticFiles(directory=static, html=True), name="frontend")

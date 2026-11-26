@@ -25,6 +25,7 @@ from themes import router as themes_router
 from chat_ai import ChatRequest, respond
 import settings
 from page_analysis import analyze_page
+from forge import build_router as forge_router
 
 ROOT = Path(__file__).resolve().parent
 CATALOG = Path(os.environ.get("DKHUB_APPS_FILE", ROOT / ".local" / "apps.json"))
@@ -458,6 +459,10 @@ def director_action(service_id: str, action: str, request: Request, admin_passwo
     if action == "start" and isinstance(result, dict):
         sync_tile(result)
     return result
+
+
+app.include_router(forge_router(lambda *args: director_request(*args),
+                               lambda: director_host(), lambda *args: save_service_tile(*args)))
 
 
 class SettingsUpdate(BaseModel):
